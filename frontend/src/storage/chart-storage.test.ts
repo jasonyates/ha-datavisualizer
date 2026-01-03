@@ -115,4 +115,37 @@ describe('ChartStorage', () => {
       expect(copy!.entities).toEqual(original.entities);
     });
   });
+
+  describe('exportAll', () => {
+    it('should export all charts as JSON string', () => {
+      storage.save({ name: 'Chart 1', entities: [], chartTypes: [], timeRange: { preset: '7d' }, axes: [] });
+      storage.save({ name: 'Chart 2', entities: [], chartTypes: [], timeRange: { preset: '24h' }, axes: [] });
+
+      const exported = storage.exportAll();
+      const parsed = JSON.parse(exported);
+
+      expect(parsed).toHaveLength(2);
+      expect(parsed[0].name).toBe('Chart 1');
+      expect(parsed[1].name).toBe('Chart 2');
+    });
+  });
+
+  describe('importCharts', () => {
+    it('should import charts from JSON and return count', () => {
+      const chartsJson = JSON.stringify([
+        { name: 'Imported 1', entities: [], chartTypes: [], timeRange: { preset: '7d' }, axes: [] },
+        { name: 'Imported 2', entities: [], chartTypes: [], timeRange: { preset: '24h' }, axes: [] },
+      ]);
+
+      const count = storage.importCharts(chartsJson);
+
+      expect(count).toBe(2);
+      expect(storage.getAll()).toHaveLength(2);
+    });
+
+    it('should return 0 for invalid JSON', () => {
+      const count = storage.importCharts('invalid json');
+      expect(count).toBe(0);
+    });
+  });
 });
