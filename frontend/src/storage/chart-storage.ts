@@ -94,7 +94,8 @@ export class ChartStorage {
    * Get a chart by ID.
    */
   get(id: string): SavedChart | undefined {
-    return this.charts.find((c) => c.id === id);
+    const chart = this.charts.find((c) => c.id === id);
+    return chart ? { ...chart } : undefined;
   }
 
   /**
@@ -162,7 +163,12 @@ export class ChartStorage {
   }
 
   private persist(): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.charts));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.charts));
+    } catch (e) {
+      // Handle QuotaExceededError gracefully
+      console.warn('Failed to persist charts to localStorage:', e);
+    }
   }
 
   private generateId(): string {
