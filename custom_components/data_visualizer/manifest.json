@@ -1,0 +1,12 @@
+{
+  "domain": "data_visualizer",
+  "name": "Data Visualizer",
+  "codeowners": [],
+  "config_flow": false,
+  "dependencies": ["frontend", "recorder", "websocket_api"],
+  "documentation": "https://github.com/yourusername/ha-data-visualizer",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/yourusername/ha-data-visualizer/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
