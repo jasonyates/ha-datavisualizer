@@ -43,6 +43,8 @@ export class ChartCanvas extends LitElement {
     current: number;
   }> = [];
 
+  @state() private visibleRange?: { start: number; end: number };
+
   private chart?: ECharts;
   private resizeObserver?: ResizeObserver;
 
@@ -158,6 +160,11 @@ export class ChartCanvas extends LitElement {
     this.chart = echarts.init(this.chartContainer, undefined, {
       renderer: 'canvas',
     });
+
+    // Listen for zoom events to update stats
+    this.chart.on('dataZoom', () => {
+      this.handleDataZoom();
+    });
   }
 
   private setupResizeObserver(): void {
@@ -209,6 +216,101 @@ export class ChartCanvas extends LitElement {
         current,
       };
     });
+  }
+
+  private handleDataZoom(): void {
+    if (!this.chart || !this.config) return;
+
+    const option = this.chart.getOption() as any;
+    const dataZoom = option.dataZoom?.[0];
+
+    if (dataZoom && dataZoom.startValue !== undefined && dataZoom.endValue !== undefined) {
+      this.visibleRange = {
+        start: dataZoom.startValue,
+        end: dataZoom.endValue,
+      };
+    } else {
+      this.visibleRange = undefined;
+    }
+
+    // Recalculate stats for visible range
+    this.updateStatsForVisibleRange();
+  }
+
+  private updateStatsForVisibleRange(): void {
+    if (!this.config) return;
+
+    const cfg = this.config.legendConfig;
+    if (!cfg || (!cfg.showMin && !cfg.showAvg && !cfg.showMax && !cfg.showCurrent)) return;
+
+    // Filter data to visible range
+    const filteredSeries = this.config.series.map(s => {
+      let points = s.dataPoints;
+      if (this.visibleRange) {
+        points = s.dataPoints.filter(p =>
+          p.timestamp >= this.visibleRange!.start && p.timestamp <= this.visibleRange!.end
+        );
+      }
+      return { ...s, dataPoints: points };
+    });
+
+    // Update table stats
+    const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'];
+
+    this.tableStats = filteredSeries.map((s, index) => {
+      const values = s.dataPoints.map(p => p.value).filter(v => v !== null && v !== undefined) as number[];
+      const stats = this.calculateStats(values);
+      const current = values.length > 0 ? values[values.length - 1] : 0;
+
+      const seriesCfg = this.config?.seriesConfig.find(c => c.entityId === s.entityId);
+      const color = seriesCfg?.color || colors[index % colors.length];
+
+      return {
+        name: s.name,
+        color,
+        ...stats,
+        current,
+      };
+    });
+
+    // Update legend formatter if in list mode
+    if (cfg.mode === 'list' && this.chart) {
+      this.updateLegendForVisibleRange(filteredSeries);
+    }
+  }
+
+  private updateLegendForVisibleRange(filteredSeries: EntityDataSeries[]): void {
+    if (!this.config?.legendConfig || !this.chart) return;
+
+    const cfg = this.config.legendConfig;
+    const seriesStats = new Map<string, { min: number; avg: number; max: number; current: number }>();
+
+    for (const s of filteredSeries) {
+      const values = s.dataPoints.map(p => p.value).filter(v => v !== null && v !== undefined) as number[];
+      const stats = this.calculateStats(values);
+      const current = values.length > 0 ? values[values.length - 1] : 0;
+      seriesStats.set(s.name, { ...stats, current });
+    }
+
+    const legendFormatter = (name: string) => {
+      const stats = seriesStats.get(name);
+      if (!stats) return name;
+
+      const parts: string[] = [];
+      if (cfg.showMin) parts.push(`min: ${stats.min.toFixed(1)}`);
+      if (cfg.showAvg) parts.push(`avg: ${stats.avg.toFixed(1)}`);
+      if (cfg.showMax) parts.push(`max: ${stats.max.toFixed(1)}`);
+      if (cfg.showCurrent) parts.push(`current: ${stats.current.toFixed(1)}`);
+
+      if (parts.length === 0) return name;
+      return `${name} (${parts.join(', ')})`;
+    };
+
+    this.chart.setOption({
+      legend: {
+        formatter: legendFormatter,
+      },
+    }, { notMerge: false });
   }
 
   public updateChartConfig(config: ChartConfig): void {
