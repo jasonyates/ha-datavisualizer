@@ -113,12 +113,12 @@ export class EntityConfigCard extends LitElement {
           <div class="control-group">
             <label>Stats</label>
             <select .value=${this.config.statisticsType} @change=${this._handleStatsChange}>
-              <option value="state">State</option>
-              <option value="mean">Mean</option>
-              <option value="min">Min</option>
-              <option value="max">Max</option>
-              <option value="sum">Sum</option>
-              <option value="change">Change</option>
+              <option value="state">Last Value</option>
+              <option value="mean">Average</option>
+              <option value="min">Minimum</option>
+              <option value="max">Maximum</option>
+              <option value="sum">Total</option>
+              <option value="change">Delta</option>
             </select>
           </div>
           <div class="control-group">

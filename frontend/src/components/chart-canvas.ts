@@ -37,6 +37,7 @@ export class ChartCanvas extends LitElement {
   @state() private tableStats: Array<{
     name: string;
     color: string;
+    unit: string;
     min: number;
     avg: number;
     max: number;
@@ -124,7 +125,7 @@ export class ChartCanvas extends LitElement {
             <tr>
               <td>
                 <span class="color-dot" style="background: ${stat.color}"></span>
-                ${stat.name}
+                ${stat.name}${stat.unit ? ` (${stat.unit})` : ''}
               </td>
               ${cfg.showMin ? html`<td>${stat.min.toFixed(2)}</td>` : ''}
               ${cfg.showAvg ? html`<td>${stat.avg.toFixed(2)}</td>` : ''}
@@ -212,6 +213,7 @@ export class ChartCanvas extends LitElement {
       return {
         name: s.name,
         color,
+        unit: s.unit || '',
         ...stats,
         current,
       };
@@ -268,6 +270,7 @@ export class ChartCanvas extends LitElement {
       return {
         name: s.name,
         color,
+        unit: s.unit || '',
         ...stats,
         current,
       };
@@ -283,13 +286,13 @@ export class ChartCanvas extends LitElement {
     if (!this.config?.legendConfig || !this.chart) return;
 
     const cfg = this.config.legendConfig;
-    const seriesStats = new Map<string, { min: number; avg: number; max: number; current: number }>();
+    const seriesStats = new Map<string, { min: number; avg: number; max: number; current: number; unit: string }>();
 
     for (const s of filteredSeries) {
       const values = s.dataPoints.map(p => p.value).filter(v => v !== null && v !== undefined) as number[];
       const stats = this.calculateStats(values);
       const current = values.length > 0 ? values[values.length - 1] : 0;
-      seriesStats.set(s.name, { ...stats, current });
+      seriesStats.set(s.name, { ...stats, current, unit: s.unit || '' });
     }
 
     const legendFormatter = (name: string) => {
@@ -297,10 +300,11 @@ export class ChartCanvas extends LitElement {
       if (!stats) return name;
 
       const parts: string[] = [];
-      if (cfg.showMin) parts.push(`min: ${stats.min.toFixed(1)}`);
-      if (cfg.showAvg) parts.push(`avg: ${stats.avg.toFixed(1)}`);
-      if (cfg.showMax) parts.push(`max: ${stats.max.toFixed(1)}`);
-      if (cfg.showCurrent) parts.push(`current: ${stats.current.toFixed(1)}`);
+      const unit = stats.unit ? ` ${stats.unit}` : '';
+      if (cfg.showMin) parts.push(`min: ${stats.min.toFixed(1)}${unit}`);
+      if (cfg.showAvg) parts.push(`avg: ${stats.avg.toFixed(1)}${unit}`);
+      if (cfg.showMax) parts.push(`max: ${stats.max.toFixed(1)}${unit}`);
+      if (cfg.showCurrent) parts.push(`current: ${stats.current.toFixed(1)}${unit}`);
 
       if (parts.length === 0) return name;
       return `${name} (${parts.join(', ')})`;
@@ -323,13 +327,13 @@ export class ChartCanvas extends LitElement {
     const { series, seriesConfig, axes, title, showLegend = true, showTooltip = true, legendConfig } = config;
 
     // Calculate stats for each series if needed
-    const seriesStats = new Map<string, { min: number; avg: number; max: number; current: number }>();
+    const seriesStats = new Map<string, { min: number; avg: number; max: number; current: number; unit: string }>();
     if (legendConfig && (legendConfig.showMin || legendConfig.showAvg || legendConfig.showMax || legendConfig.showCurrent)) {
       for (const s of series) {
         const values = s.dataPoints.map(p => p.value).filter(v => v !== null && v !== undefined) as number[];
         const stats = this.calculateStats(values);
         const current = values.length > 0 ? values[values.length - 1] : 0;
-        seriesStats.set(s.name, { ...stats, current });
+        seriesStats.set(s.name, { ...stats, current, unit: s.unit || '' });
       }
     }
 
@@ -342,10 +346,11 @@ export class ChartCanvas extends LitElement {
       if (!stats) return name;
 
       const parts: string[] = [];
-      if (legendConfig.showMin) parts.push(`min: ${stats.min.toFixed(1)}`);
-      if (legendConfig.showAvg) parts.push(`avg: ${stats.avg.toFixed(1)}`);
-      if (legendConfig.showMax) parts.push(`max: ${stats.max.toFixed(1)}`);
-      if (legendConfig.showCurrent) parts.push(`current: ${stats.current.toFixed(1)}`);
+      const unit = stats.unit ? ` ${stats.unit}` : '';
+      if (legendConfig.showMin) parts.push(`min: ${stats.min.toFixed(1)}${unit}`);
+      if (legendConfig.showAvg) parts.push(`avg: ${stats.avg.toFixed(1)}${unit}`);
+      if (legendConfig.showMax) parts.push(`max: ${stats.max.toFixed(1)}${unit}`);
+      if (legendConfig.showCurrent) parts.push(`current: ${stats.current.toFixed(1)}${unit}`);
 
       if (parts.length === 0) return name;
       return `${name} (${parts.join(', ')})`;

@@ -90,7 +90,7 @@ export class ChartBuilder extends LitElement {
 
     .config-panel {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: 40% 30% 30%;
       gap: 16px;
       padding: 16px;
       background: var(--secondary-background-color, #f5f5f5);

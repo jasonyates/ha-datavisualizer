@@ -2245,12 +2245,12 @@ let Vh = class extends fa {
           <div class="control-group">
             <label>Stats</label>
             <select .value=${this.config.statisticsType} @change=${this._handleStatsChange}>
-              <option value="state">State</option>
-              <option value="mean">Mean</option>
-              <option value="min">Min</option>
-              <option value="max">Max</option>
-              <option value="sum">Sum</option>
-              <option value="change">Change</option>
+              <option value="state">Last Value</option>
+              <option value="mean">Average</option>
+              <option value="min">Minimum</option>
+              <option value="max">Maximum</option>
+              <option value="sum">Total</option>
+              <option value="change">Delta</option>
             </select>
           </div>
           <div class="control-group">
@@ -45839,7 +45839,7 @@ let Mn = class extends fa {
             <tr>
               <td>
                 <span class="color-dot" style="background: ${a.color}"></span>
-                ${a.name}
+                ${a.name}${a.unit ? ` (${a.unit})` : ""}
               </td>
               ${r.showMin ? Pt`<td>${a.min.toFixed(2)}</td>` : ""}
               ${r.showAvg ? Pt`<td>${a.avg.toFixed(2)}</td>` : ""}
@@ -45895,6 +45895,7 @@ let Mn = class extends fa {
       return {
         name: t.name,
         color: s,
+        unit: t.unit || "",
         ...i,
         current: n
       };
@@ -45925,6 +45926,7 @@ let Mn = class extends fa {
       return {
         name: a.name,
         color: u,
+        unit: a.unit || "",
         ...o,
         current: s
       };
@@ -45936,13 +45938,13 @@ let Mn = class extends fa {
     const t = this.config.legendConfig, e = /* @__PURE__ */ new Map();
     for (const n of r) {
       const o = n.dataPoints.map((u) => u.value).filter((u) => u != null), s = this.calculateStats(o), l = o.length > 0 ? o[o.length - 1] : 0;
-      e.set(n.name, { ...s, current: l });
+      e.set(n.name, { ...s, current: l, unit: n.unit || "" });
     }
     const a = (n) => {
       const o = e.get(n);
       if (!o) return n;
-      const s = [];
-      return t.showMin && s.push(`min: ${o.min.toFixed(1)}`), t.showAvg && s.push(`avg: ${o.avg.toFixed(1)}`), t.showMax && s.push(`max: ${o.max.toFixed(1)}`), t.showCurrent && s.push(`current: ${o.current.toFixed(1)}`), s.length === 0 ? n : `${n} (${s.join(", ")})`;
+      const s = [], l = o.unit ? ` ${o.unit}` : "";
+      return t.showMin && s.push(`min: ${o.min.toFixed(1)}${l}`), t.showAvg && s.push(`avg: ${o.avg.toFixed(1)}${l}`), t.showMax && s.push(`max: ${o.max.toFixed(1)}${l}`), t.showCurrent && s.push(`current: ${o.current.toFixed(1)}${l}`), s.length === 0 ? n : `${n} (${s.join(", ")})`;
     };
     this.chart.setOption({
       legend: {
@@ -45960,15 +45962,15 @@ let Mn = class extends fa {
     if (s && (s.showMin || s.showAvg || s.showMax || s.showCurrent))
       for (const c of t) {
         const v = c.dataPoints.map((g) => g.value).filter((g) => g != null), d = this.calculateStats(v), p = v.length > 0 ? v[v.length - 1] : 0;
-        l.set(c.name, { ...d, current: p });
+        l.set(c.name, { ...d, current: p, unit: c.unit || "" });
       }
     const u = (c) => {
       if (!s || s.mode === "table")
         return c;
       const v = l.get(c);
       if (!v) return c;
-      const d = [];
-      return s.showMin && d.push(`min: ${v.min.toFixed(1)}`), s.showAvg && d.push(`avg: ${v.avg.toFixed(1)}`), s.showMax && d.push(`max: ${v.max.toFixed(1)}`), s.showCurrent && d.push(`current: ${v.current.toFixed(1)}`), d.length === 0 ? c : `${c} (${d.join(", ")})`;
+      const d = [], p = v.unit ? ` ${v.unit}` : "";
+      return s.showMin && d.push(`min: ${v.min.toFixed(1)}${p}`), s.showAvg && d.push(`avg: ${v.avg.toFixed(1)}${p}`), s.showMax && d.push(`max: ${v.max.toFixed(1)}${p}`), s.showCurrent && d.push(`current: ${v.current.toFixed(1)}${p}`), d.length === 0 ? c : `${c} (${d.join(", ")})`;
     }, h = a.map((c, v) => {
       const d = c.id === "left" ? "left" : "right";
       return {
@@ -46480,7 +46482,7 @@ ke.styles = Vl`
 
     .config-panel {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: 40% 30% 30%;
       gap: 16px;
       padding: 16px;
       background: var(--secondary-background-color, #f5f5f5);
