@@ -46196,28 +46196,19 @@ let ke = class extends fa {
             <button class="add-btn" @click=${() => this.showEntityPicker = !0}>+ Add Entity</button>
           </div>
 
-          <div class="config-section">
-            <h3>Time Range</h3>
-            <select .value=${this.timeRangePreset} @change=${this.handleTimeRangeChange}>
-              <option value="1h">Last Hour</option>
-              <option value="24h">Last 24 Hours</option>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-            </select>
-          </div>
+          <div class="config-group">
+            <div class="config-section">
+              <h3>Time Range</h3>
+              <select .value=${this.timeRangePreset} @change=${this.handleTimeRangeChange}>
+                <option value="1h">Last Hour</option>
+                <option value="24h">Last 24 Hours</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+              </select>
+            </div>
 
-          <div class="config-section">
-            <h3>Title</h3>
-            <input
-              type="text"
-              placeholder="Chart title (optional)"
-              .value=${this.chartTitle}
-              @input=${(r) => this.chartTitle = r.target.value}
-            />
-          </div>
-
-          <div class="config-section full-width">
-            <h3>Legend</h3>
+            <div class="config-section">
+              <h3>Legend</h3>
             <label>
               Display:
               <select
@@ -46263,6 +46254,17 @@ let ke = class extends fa {
                 Current
               </label>
             </div>
+          </div>
+          </div>
+
+          <div class="config-section">
+            <h3>Title</h3>
+            <input
+              type="text"
+              placeholder="Chart title (optional)"
+              .value=${this.chartTitle}
+              @input=${(r) => this.chartTitle = r.target.value}
+            />
           </div>
         </div>
       </div>
@@ -46603,8 +46605,10 @@ ke.styles = Vl`
       gap: 8px;
     }
 
-    .config-section.full-width {
-      grid-column: 1 / -1;
+    .config-group {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
   `;
 je([
