@@ -48,6 +48,7 @@ export class ChartCanvas extends LitElement {
 
   private chart?: ECharts;
   private resizeObserver?: ResizeObserver;
+  private boundVisibilityHandler = this.handleVisibilityChange.bind(this);
 
   static styles = css`
     :host {
@@ -138,6 +139,11 @@ export class ChartCanvas extends LitElement {
     `;
   }
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    document.addEventListener('visibilitychange', this.boundVisibilityHandler);
+  }
+
   protected firstUpdated(_changedProperties: PropertyValues): void {
     this.initChart();
     this.setupResizeObserver();
@@ -151,8 +157,18 @@ export class ChartCanvas extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    document.removeEventListener('visibilitychange', this.boundVisibilityHandler);
     this.chart?.dispose();
     this.resizeObserver?.disconnect();
+  }
+
+  private handleVisibilityChange(): void {
+    if (document.visibilityState === 'visible' && this.chart) {
+      // Delay resize to ensure container has correct dimensions
+      requestAnimationFrame(() => {
+        this.chart?.resize();
+      });
+    }
   }
 
   private initChart(): void {

@@ -45831,7 +45831,7 @@ var FY = Object.defineProperty, GY = Object.getOwnPropertyDescriptor, lu = (r, t
 };
 let Mn = class extends fa {
   constructor() {
-    super(...arguments), this.tableStats = [];
+    super(...arguments), this.tableStats = [], this.boundVisibilityHandler = this.handleVisibilityChange.bind(this);
   }
   render() {
     var t, e;
@@ -45872,6 +45872,9 @@ let Mn = class extends fa {
       </table>
     `;
   }
+  connectedCallback() {
+    super.connectedCallback(), document.addEventListener("visibilitychange", this.boundVisibilityHandler);
+  }
   firstUpdated(r) {
     this.initChart(), this.setupResizeObserver();
   }
@@ -45880,7 +45883,13 @@ let Mn = class extends fa {
   }
   disconnectedCallback() {
     var r, t;
-    super.disconnectedCallback(), (r = this.chart) == null || r.dispose(), (t = this.resizeObserver) == null || t.disconnect();
+    super.disconnectedCallback(), document.removeEventListener("visibilitychange", this.boundVisibilityHandler), (r = this.chart) == null || r.dispose(), (t = this.resizeObserver) == null || t.disconnect();
+  }
+  handleVisibilityChange() {
+    document.visibilityState === "visible" && this.chart && requestAnimationFrame(() => {
+      var r;
+      (r = this.chart) == null || r.resize();
+    });
   }
   initChart() {
     this.chartContainer && (this.chart = RV(this.chartContainer, void 0, {
