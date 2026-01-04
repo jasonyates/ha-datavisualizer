@@ -91,10 +91,34 @@ export class HaDataVisualizer extends LitElement {
       background: var(--secondary-background-color, #f5f5f5);
       border-radius: 4px;
       margin-bottom: 12px;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .chart-preview .entity-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--secondary-text-color, #666);
+    }
+
+    .chart-preview .entity-item {
       display: flex;
       align-items: center;
-      justify-content: center;
-      color: var(--secondary-text-color, #666);
+      gap: 6px;
+    }
+
+    .chart-preview .entity-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary-color);
+    }
+
+    .chart-preview .more {
+      font-style: italic;
+      color: var(--secondary-text-color, #999);
     }
 
     .chart-name {
@@ -202,11 +226,25 @@ export class HaDataVisualizer extends LitElement {
   private _renderChartCard(chart: SavedChart) {
     const updatedDate = new Date(chart.updatedAt).toLocaleDateString();
     const entityCount = chart.entities.length;
+    const displayEntities = chart.entities.slice(0, 4);
+    const moreCount = entityCount - 4;
 
     return html`
       <div class="chart-card" @click=${() => this._handleEditChart(chart.id)}>
         <div class="chart-preview">
-          Preview
+          <div class="entity-list">
+            ${displayEntities.map((entity) => {
+              const state = this.hass?.states[entity.entityId];
+              const name = (state?.attributes?.friendly_name as string) || entity.entityId;
+              return html`
+                <div class="entity-item">
+                  <span class="entity-dot"></span>
+                  <span>${name}</span>
+                </div>
+              `;
+            })}
+            ${moreCount > 0 ? html`<div class="more">+${moreCount} more</div>` : ''}
+          </div>
         </div>
         <div class="chart-name">${chart.name}</div>
         <div class="chart-meta">
@@ -275,8 +313,8 @@ export class HaDataVisualizer extends LitElement {
     }
   }
 
-  private _handleChartSaved() {
-    this.loadCharts();
+  private async _handleChartSaved(): Promise<void> {
+    await this.loadCharts();
     this._view = 'list';
     this._updateUrl();
   }
