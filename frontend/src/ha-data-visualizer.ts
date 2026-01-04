@@ -13,6 +13,7 @@ export class HaDataVisualizer extends LitElement {
   @state() private _view: 'list' | 'builder' = 'list';
   @state() private _editingChartId?: string;
   @state() private _savedCharts: SavedChart[] = [];
+  @state() private _error = '';
 
   private storage = new ChartStorage();
 
@@ -133,6 +134,14 @@ export class HaDataVisualizer extends LitElement {
       color: white;
       border-color: var(--error-color, #f44336);
     }
+
+    .error-banner {
+      background: var(--error-color, #f44336);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
   `;
 
   connectedCallback(): void {
@@ -147,6 +156,7 @@ export class HaDataVisualizer extends LitElement {
   protected render() {
     return html`
       <div class="container">
+        ${this._error ? html`<div class="error-banner">${this._error}</div>` : ''}
         ${this._view === 'list' ? this._renderChartList() : this._renderBuilder()}
       </div>
     `;
@@ -222,14 +232,24 @@ export class HaDataVisualizer extends LitElement {
   }
 
   private _handleDuplicate(id: string) {
-    this.storage.duplicate(id);
-    this.loadCharts();
+    try {
+      this.storage.duplicate(id);
+      this.loadCharts();
+    } catch (e) {
+      console.error('Failed to duplicate chart:', e);
+      this._error = 'Failed to duplicate chart.';
+    }
   }
 
   private _handleDelete(id: string) {
     if (confirm('Are you sure you want to delete this chart?')) {
-      this.storage.delete(id);
-      this.loadCharts();
+      try {
+        this.storage.delete(id);
+        this.loadCharts();
+      } catch (e) {
+        console.error('Failed to delete chart:', e);
+        this._error = 'Failed to delete chart.';
+      }
     }
   }
 
