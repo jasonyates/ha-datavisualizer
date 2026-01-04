@@ -155,7 +155,7 @@ export class ChartCanvas extends LitElement {
     });
 
     return {
-      title: title ? { text: title, left: 'center' } : undefined,
+      title: title ? { text: title, left: 'center', textStyle: { color: '#fff' } } : undefined,
       tooltip: showTooltip ? {
         trigger: 'axis',
         axisPointer: { type: 'cross' },
@@ -175,6 +175,7 @@ export class ChartCanvas extends LitElement {
       legend: showLegend ? {
         data: series.map((s) => s.name),
         bottom: 0,
+        textStyle: { color: '#fff' },
       } : undefined,
       grid: {
         left: '10%',
