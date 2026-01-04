@@ -50,10 +50,8 @@ const AGGREGATION_PATTERNS: Array<{ pattern: RegExp; agg: Aggregation }> = [
 
 export class QueryParser {
   private fuse: Fuse<HassEntityRegistry>;
-  private entities: HassEntityRegistry[];
 
   constructor(entities: HassEntityRegistry[]) {
-    this.entities = entities;
     this.fuse = new Fuse(entities, {
       keys: [
         { name: 'entity_id', weight: 0.3 },

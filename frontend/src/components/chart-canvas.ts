@@ -1,5 +1,5 @@
 import { LitElement, html, css, PropertyValues } from 'lit';
-import { customElement, property, state, query } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import * as echarts from 'echarts';
 import type { EChartsOption, ECharts } from 'echarts';
 import type { EntityDataSeries } from '../services/data-fetcher';

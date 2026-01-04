@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DataFetcher, type ChartDataPoint } from './data-fetcher';
+import { DataFetcher } from './data-fetcher';
 import { HaApi } from './ha-api';
 
 vi.mock('./ha-api');

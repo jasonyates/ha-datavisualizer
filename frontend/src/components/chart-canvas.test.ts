@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fixture, html, expect as expectEl } from '@open-wc/testing';
+import { describe, it, expect, vi } from 'vitest';
+import { fixture, html } from '@open-wc/testing';
 import './chart-canvas';
 import type { ChartCanvas } from './chart-canvas';
 

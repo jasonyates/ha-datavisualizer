@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { QueryParser, type ParsedQuery } from './parser';
+import { QueryParser } from './parser';
 import type { HassEntityRegistry } from '../types/homeassistant';
 
 describe('QueryParser', () => {

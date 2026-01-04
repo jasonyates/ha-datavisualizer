@@ -29,6 +29,7 @@ export class ChartBuilder extends LitElement {
   @state() private chartData: EntityDataSeries[] = [];
   @state() private loading = false;
   @state() private showEntityPicker = false;
+  @state() private error = '';
 
   private api!: HaApi;
   private dataFetcher!: DataFetcher;
@@ -200,24 +201,35 @@ export class ChartBuilder extends LitElement {
       min-height: 200px;
       color: var(--secondary-text-color, #666);
     }
+
+    .error {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      color: var(--error-color, #f44336);
+    }
   `;
 
   protected async firstUpdated(_changedProperties: PropertyValues): Promise<void> {
     this.api = new HaApi(this.hass);
     this.dataFetcher = new DataFetcher(this.api);
 
-    // Load entity registry and areas
-    const [entities, areas] = await Promise.all([
-      this.api.getEntityRegistry(),
-      this.api.getAreas(),
-    ]);
-    this.entities = entities;
-    this.areas = areas;
-    this.queryParser = new QueryParser(entities);
+    try {
+      const [entities, areas] = await Promise.all([
+        this.api.getEntityRegistry(),
+        this.api.getAreas(),
+      ]);
+      this.entities = entities;
+      this.areas = areas;
+      this.queryParser = new QueryParser(entities);
 
-    // If editing existing chart, load it
-    if (this.chartId) {
-      this.loadChart(this.chartId);
+      if (this.chartId) {
+        this.loadChart(this.chartId);
+      }
+    } catch (e) {
+      console.error('Failed to load entities:', e);
+      this.error = 'Failed to load entity data. Please refresh.';
     }
   }
 
@@ -237,9 +249,11 @@ export class ChartBuilder extends LitElement {
         </div>
 
         <div class="chart-area">
-          ${this.loading
-            ? html`<div class="loading">Loading data...</div>`
-            : html`<chart-canvas .config=${this.buildChartConfig()}></chart-canvas>`
+          ${this.error
+            ? html`<div class="error">${this.error}</div>`
+            : this.loading
+              ? html`<div class="loading">Loading data...</div>`
+              : html`<chart-canvas .config=${this.buildChartConfig()}></chart-canvas>`
           }
         </div>
 
@@ -323,7 +337,7 @@ export class ChartBuilder extends LitElement {
         entityId,
         axisId: 'left',
       }));
-      this.axes[0].entityIds = parsed.entities;
+      this.axes = [{ ...this.axes[0], entityIds: parsed.entities }];
     }
 
     if (parsed.timeRange.preset) {
@@ -341,6 +355,7 @@ export class ChartBuilder extends LitElement {
     if (this.selectedEntities.length === 0) return;
 
     this.loading = true;
+    this.error = '';
 
     const { start, end } = QueryParser.presetToDateRange(this.timeRangePreset);
 
@@ -350,6 +365,9 @@ export class ChartBuilder extends LitElement {
         start,
         end
       );
+    } catch (e) {
+      console.error('Failed to fetch chart data:', e);
+      this.error = 'Failed to load chart data. Please try again.';
     } finally {
       this.loading = false;
     }
@@ -375,7 +393,7 @@ export class ChartBuilder extends LitElement {
         entityId: entity.entity_id,
         axisId: 'left',
       }];
-      this.axes[0].entityIds = this.selectedEntities.map((e) => e.entityId);
+      this.axes = [{ ...this.axes[0], entityIds: this.selectedEntities.map((e) => e.entityId) }];
       this.fetchChartData();
     }
     this.showEntityPicker = false;
@@ -383,14 +401,13 @@ export class ChartBuilder extends LitElement {
 
   private removeEntity(entityId: string): void {
     this.selectedEntities = this.selectedEntities.filter((e) => e.entityId !== entityId);
-    this.axes[0].entityIds = this.selectedEntities.map((e) => e.entityId);
+    this.axes = [{ ...this.axes[0], entityIds: this.selectedEntities.map((e) => e.entityId) }];
     this.fetchChartData();
   }
 
   private handleChartTypeChange(e: Event): void {
     const type = (e.target as HTMLSelectElement).value as 'line' | 'bar' | 'area';
     this.chartTypes = [{ axisId: 'left', type }];
-    this.requestUpdate();
   }
 
   private handleTimeRangeChange(e: Event): void {
