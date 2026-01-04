@@ -1,4 +1,5 @@
-import type { HaApi, StatisticsPeriod } from './ha-api';
+import type { HaApi } from './ha-api';
+import { calculateChange, type StatisticsType, type GroupingPeriod } from '../utils/statistics';
 
 export interface ChartDataPoint {
   timestamp: number;
@@ -12,38 +13,39 @@ export interface EntityDataSeries {
   dataPoints: ChartDataPoint[];
 }
 
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
+export interface FetchOptions {
+  statisticsType: StatisticsType;
+  groupingPeriod: GroupingPeriod;
+}
 
 export class DataFetcher {
   constructor(private api: HaApi) {}
 
   /**
-   * Fetch data for an entity with automatic resolution selection.
-   * - < 24 hours: raw history (high resolution)
-   * - 1-7 days: 5-minute statistics
-   * - > 7 days: hourly statistics
+   * Fetch data for an entity with specified statistics type and grouping.
    */
   async fetchData(
     entityId: string,
     start: Date,
     end: Date,
-    forceResolution?: 'history' | StatisticsPeriod
+    options: FetchOptions
   ): Promise<EntityDataSeries> {
     const state = this.api.getState(entityId);
     const unit = (state?.attributes?.unit_of_measurement as string) || '';
     const name = (state?.attributes?.friendly_name as string) || entityId;
 
-    const rangeMs = end.getTime() - start.getTime();
-    let dataPoints: ChartDataPoint[];
+    // Map grouping period to HA API period
+    const period = this.mapGroupingPeriod(options.groupingPeriod);
 
-    if (forceResolution === 'history' || (!forceResolution && rangeMs < DAY_MS)) {
-      // Use raw history for short ranges
-      dataPoints = await this.fetchHistoryData(entityId, start, end);
-    } else {
-      // Use statistics for longer ranges
-      const period = this.selectStatisticsPeriod(rangeMs, forceResolution);
-      dataPoints = await this.fetchStatisticsData(entityId, start, end, period);
+    // Fetch statistics
+    const stats = await this.api.getStatistics(entityId, start, end, period);
+
+    // Extract data points based on statistics type
+    let dataPoints = this.extractDataPoints(stats, options.statisticsType);
+
+    // For 'change' type, calculate deltas
+    if (options.statisticsType === 'change') {
+      dataPoints = calculateChange(dataPoints);
     }
 
     return {
@@ -55,58 +57,50 @@ export class DataFetcher {
   }
 
   /**
-   * Fetch data for multiple entities in parallel.
+   * Fetch data for multiple entities with individual options.
    */
   async fetchMultiple(
-    entityIds: string[],
+    entities: Array<{ entityId: string; options: FetchOptions }>,
     start: Date,
     end: Date
   ): Promise<EntityDataSeries[]> {
     return Promise.all(
-      entityIds.map((id) => this.fetchData(id, start, end))
+      entities.map(({ entityId, options }) =>
+        this.fetchData(entityId, start, end, options)
+      )
     );
   }
 
-  private selectStatisticsPeriod(
-    rangeMs: number,
-    forceResolution?: StatisticsPeriod
-  ): StatisticsPeriod {
-    if (forceResolution) return forceResolution;
-
-    if (rangeMs <= 7 * DAY_MS) {
-      return '5minute';
+  private mapGroupingPeriod(period: GroupingPeriod): '5minute' | 'hour' | 'day' | 'week' | 'month' {
+    switch (period) {
+      case 'hour': return 'hour';
+      case 'day': return 'day';
+      case 'week': return 'week';
+      case 'month': return 'month';
+      default: return 'hour';
     }
-    return 'hour';
   }
 
-  private async fetchHistoryData(
-    entityId: string,
-    start: Date,
-    end: Date
-  ): Promise<ChartDataPoint[]> {
-    const history = await this.api.getHistory(entityId, start, end);
-
-    return history
-      .map((item) => ({
-        timestamp: new Date(item.last_changed).getTime(),
-        value: parseFloat(item.state),
-      }))
-      .filter((point) => !isNaN(point.value));
-  }
-
-  private async fetchStatisticsData(
-    entityId: string,
-    start: Date,
-    end: Date,
-    period: StatisticsPeriod
-  ): Promise<ChartDataPoint[]> {
-    const stats = await this.api.getStatistics(entityId, start, end, period);
-
+  private extractDataPoints(
+    stats: Array<{ start: string; mean?: number; min?: number; max?: number; sum?: number; state?: number }>,
+    statisticsType: StatisticsType
+  ): ChartDataPoint[] {
     return stats
-      .map((item) => ({
-        timestamp: new Date(item.start).getTime(),
-        value: item.mean ?? item.sum ?? item.state ?? 0,
-      }))
+      .map((item) => {
+        let value: number | undefined;
+        switch (statisticsType) {
+          case 'mean': value = item.mean; break;
+          case 'min': value = item.min; break;
+          case 'max': value = item.max; break;
+          case 'sum': value = item.sum; break;
+          case 'state': value = item.state; break;
+          case 'change': value = item.state ?? item.sum ?? item.mean; break;
+        }
+        return {
+          timestamp: new Date(item.start).getTime(),
+          value: value ?? 0,
+        };
+      })
       .filter((point) => !isNaN(point.value));
   }
 }
