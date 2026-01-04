@@ -46021,15 +46021,16 @@ let Mn = class extends fa {
         }
       } : void 0,
       legend: n && (s == null ? void 0 : s.mode) !== "table" ? {
+        show: !0,
         data: t.map((c) => c.name),
         bottom: 0,
         textStyle: { color: "#fff" },
         formatter: u
-      } : void 0,
+      } : { show: !1 },
       grid: {
         left: "10%",
         right: a.length > 1 ? "10%" : "5%",
-        bottom: n ? "15%" : "10%",
+        bottom: n && (s == null ? void 0 : s.mode) !== "table" ? "15%" : "10%",
         top: i ? "15%" : "10%"
       },
       xAxis: {
@@ -46215,7 +46216,7 @@ let ke = class extends fa {
             />
           </div>
 
-          <div class="config-section">
+          <div class="config-section full-width">
             <h3>Legend</h3>
             <label>
               Display:
@@ -46600,6 +46601,10 @@ ke.styles = Vl`
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+
+    .config-section.full-width {
+      grid-column: 1 / -1;
     }
   `;
 je([

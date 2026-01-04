@@ -424,15 +424,16 @@ export class ChartCanvas extends LitElement {
         },
       } : undefined,
       legend: showLegend && legendConfig?.mode !== 'table' ? {
+        show: true,
         data: series.map((s) => s.name),
         bottom: 0,
         textStyle: { color: '#fff' },
         formatter: legendFormatter,
-      } : undefined,
+      } : { show: false },
       grid: {
         left: '10%',
         right: axes.length > 1 ? '10%' : '5%',
-        bottom: showLegend ? '15%' : '10%',
+        bottom: showLegend && legendConfig?.mode !== 'table' ? '15%' : '10%',
         top: title ? '15%' : '10%',
       },
       xAxis: {

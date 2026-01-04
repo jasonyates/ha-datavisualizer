@@ -214,6 +214,10 @@ export class ChartBuilder extends LitElement {
       align-items: center;
       gap: 8px;
     }
+
+    .config-section.full-width {
+      grid-column: 1 / -1;
+    }
   `;
 
   protected async firstUpdated(_changedProperties: PropertyValues): Promise<void> {
@@ -302,7 +306,7 @@ export class ChartBuilder extends LitElement {
             />
           </div>
 
-          <div class="config-section">
+          <div class="config-section full-width">
             <h3>Legend</h3>
             <label>
               Display:
