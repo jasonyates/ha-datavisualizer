@@ -57,4 +57,50 @@ describe('ChartCanvas', () => {
       expect(option.legend?.textStyle?.color).toBe('#fff');
     });
   });
+
+  describe('calculateStats', () => {
+    it('should calculate min, avg, max from data points', () => {
+      const canvas = new ChartCanvas();
+      const dataPoints = [10, 20, 30, 40, 50];
+
+      const stats = (canvas as any).calculateStats(dataPoints);
+
+      expect(stats.min).toBe(10);
+      expect(stats.max).toBe(50);
+      expect(stats.avg).toBe(30);
+    });
+
+    it('should handle single value', () => {
+      const canvas = new ChartCanvas();
+      const dataPoints = [42];
+
+      const stats = (canvas as any).calculateStats(dataPoints);
+
+      expect(stats.min).toBe(42);
+      expect(stats.max).toBe(42);
+      expect(stats.avg).toBe(42);
+    });
+
+    it('should handle decimal values', () => {
+      const canvas = new ChartCanvas();
+      const dataPoints = [1.5, 2.5, 3.5];
+
+      const stats = (canvas as any).calculateStats(dataPoints);
+
+      expect(stats.min).toBe(1.5);
+      expect(stats.max).toBe(3.5);
+      expect(stats.avg).toBeCloseTo(2.5);
+    });
+
+    it('should return zeros for empty array', () => {
+      const canvas = new ChartCanvas();
+      const dataPoints: number[] = [];
+
+      const stats = (canvas as any).calculateStats(dataPoints);
+
+      expect(stats.min).toBe(0);
+      expect(stats.max).toBe(0);
+      expect(stats.avg).toBe(0);
+    });
+  });
 });

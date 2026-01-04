@@ -84,6 +84,16 @@ export class ChartCanvas extends LitElement {
     this.resizeObserver.observe(this.chartContainer);
   }
 
+  private calculateStats(dataPoints: number[]): { min: number; avg: number; max: number } {
+    if (dataPoints.length === 0) {
+      return { min: 0, avg: 0, max: 0 };
+    }
+    const min = Math.min(...dataPoints);
+    const max = Math.max(...dataPoints);
+    const avg = dataPoints.reduce((a, b) => a + b, 0) / dataPoints.length;
+    return { min, avg, max };
+  }
+
   private updateChart(): void {
     if (!this.chart || !this.config) return;
 
