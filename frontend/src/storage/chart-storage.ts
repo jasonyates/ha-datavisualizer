@@ -48,8 +48,8 @@ export class ChartStorage {
     this.hass = hass;
   }
 
-  async load(): Promise<void> {
-    if (this.loaded) return;
+  async load(forceReload = false): Promise<void> {
+    if (this.loaded && !forceReload) return;
     try {
       const result = await this.hass.callWS<{ value: SavedChart[] | null }>({
         type: 'frontend/get_user_data',
@@ -62,6 +62,13 @@ export class ChartStorage {
       this.charts = [];
       this.loaded = true;
     }
+  }
+
+  /**
+   * Force reload charts from storage.
+   */
+  async reload(): Promise<void> {
+    await this.load(true);
   }
 
   private async persist(): Promise<void> {

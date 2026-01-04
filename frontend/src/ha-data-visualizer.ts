@@ -183,7 +183,10 @@ export class HaDataVisualizer extends LitElement {
     }
   }
 
-  private async loadCharts(): Promise<void> {
+  private async loadCharts(forceReload = false): Promise<void> {
+    if (forceReload) {
+      await this.storage.reload();
+    }
     this._savedCharts = await this.storage.getAll();
   }
 
@@ -314,7 +317,7 @@ export class HaDataVisualizer extends LitElement {
   }
 
   private async _handleChartSaved(): Promise<void> {
-    await this.loadCharts();
+    await this.loadCharts(true);
     this._view = 'list';
     this._updateUrl();
   }
