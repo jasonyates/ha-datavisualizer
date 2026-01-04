@@ -1,5 +1,5 @@
 import { LitElement, html, css, PropertyValues } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import * as echarts from 'echarts';
 import type { EChartsOption, ECharts } from 'echarts';
 import type { EntityDataSeries } from '../services/data-fetcher';
@@ -34,6 +34,15 @@ export class ChartCanvas extends LitElement {
 
   @query('.chart-container') private chartContainer!: HTMLDivElement;
 
+  @state() private tableStats: Array<{
+    name: string;
+    color: string;
+    min: number;
+    avg: number;
+    max: number;
+    current: number;
+  }> = [];
+
   private chart?: ECharts;
   private resizeObserver?: ResizeObserver;
 
@@ -41,17 +50,89 @@ export class ChartCanvas extends LitElement {
     :host {
       display: block;
       width: 100%;
-      height: 400px;
     }
 
     .chart-container {
       width: 100%;
-      height: 100%;
+      height: 400px;
+    }
+
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stats-table th {
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .stats-table td:not(:first-child) {
+      text-align: right;
+      font-family: monospace;
+    }
+
+    .color-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
     }
   `;
 
   protected render() {
-    return html`<div class="chart-container"></div>`;
+    const showTable = this.config?.legendConfig?.mode === 'table';
+    return html`
+      <div class="chart-container"></div>
+      ${showTable ? this.renderStatsTable() : ''}
+    `;
+  }
+
+  private renderStatsTable() {
+    const cfg = this.config?.legendConfig;
+    if (!cfg) return '';
+
+    const hasStats = cfg.showMin || cfg.showAvg || cfg.showMax || cfg.showCurrent;
+    if (!hasStats && this.tableStats.length === 0) return '';
+
+    return html`
+      <table class="stats-table">
+        <thead>
+          <tr>
+            <th>Series</th>
+            ${cfg.showMin ? html`<th>Min</th>` : ''}
+            ${cfg.showAvg ? html`<th>Avg</th>` : ''}
+            ${cfg.showMax ? html`<th>Max</th>` : ''}
+            ${cfg.showCurrent ? html`<th>Current</th>` : ''}
+          </tr>
+        </thead>
+        <tbody>
+          ${this.tableStats.map(stat => html`
+            <tr>
+              <td>
+                <span class="color-dot" style="background: ${stat.color}"></span>
+                ${stat.name}
+              </td>
+              ${cfg.showMin ? html`<td>${stat.min.toFixed(2)}</td>` : ''}
+              ${cfg.showAvg ? html`<td>${stat.avg.toFixed(2)}</td>` : ''}
+              ${cfg.showMax ? html`<td>${stat.max.toFixed(2)}</td>` : ''}
+              ${cfg.showCurrent ? html`<td>${stat.current.toFixed(2)}</td>` : ''}
+            </tr>
+          `)}
+        </tbody>
+      </table>
+    `;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues): void {
@@ -101,6 +182,33 @@ export class ChartCanvas extends LitElement {
 
     const option = this.buildChartOption(this.config);
     this.chart.setOption(option, { notMerge: false });
+
+    // Update table stats if in table mode
+    if (this.config.legendConfig?.mode === 'table') {
+      this.updateTableStats();
+    }
+  }
+
+  private updateTableStats(): void {
+    if (!this.config) return;
+
+    const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'];
+
+    this.tableStats = this.config.series.map((s, index) => {
+      const values = s.dataPoints.map(p => p.value).filter(v => v !== null && v !== undefined) as number[];
+      const stats = this.calculateStats(values);
+      const current = values.length > 0 ? values[values.length - 1] : 0;
+
+      const cfg = this.config?.seriesConfig.find(c => c.entityId === s.entityId);
+      const color = cfg?.color || colors[index % colors.length];
+
+      return {
+        name: s.name,
+        color,
+        ...stats,
+        current,
+      };
+    });
   }
 
   public updateChartConfig(config: ChartConfig): void {
