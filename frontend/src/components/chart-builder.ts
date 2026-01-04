@@ -495,6 +495,13 @@ export class ChartBuilder extends LitElement {
     this.selectedEntities = chart.entities;
     this.timeRangePreset = chart.timeRange.preset || '24h';
     this.chartTitle = chart.title || '';
+    this.legendConfig = chart.legendConfig || {
+      mode: 'list',
+      showMin: false,
+      showAvg: false,
+      showMax: false,
+      showCurrent: false,
+    };
 
     this.fetchChartData();
   }
@@ -532,6 +539,7 @@ export class ChartBuilder extends LitElement {
       axes,
       timeRange: { preset: this.timeRangePreset },
       title: this.chartTitle,
+      legendConfig: this.legendConfig,
     });
 
     this.dispatchEvent(new CustomEvent('chart-saved', {
