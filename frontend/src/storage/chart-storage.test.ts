@@ -179,4 +179,43 @@ describe('ChartStorage', () => {
       expect(count).toBe(0);
     });
   });
+
+  describe('legendConfig', () => {
+    it('should save and retrieve legendConfig', async () => {
+      const chart = await storage.save({
+        name: 'Chart with legend config',
+        entities: [],
+        timeRange: { preset: '7d' },
+        axes: [],
+        legendConfig: {
+          mode: 'table',
+          showMin: true,
+          showAvg: true,
+          showMax: false,
+          showCurrent: true,
+        },
+      });
+
+      const retrieved = await storage.get(chart.id);
+      expect(retrieved?.legendConfig).toEqual({
+        mode: 'table',
+        showMin: true,
+        showAvg: true,
+        showMax: false,
+        showCurrent: true,
+      });
+    });
+
+    it('should default to undefined legendConfig for backward compatibility', async () => {
+      const chart = await storage.save({
+        name: 'Chart without legend config',
+        entities: [],
+        timeRange: { preset: '7d' },
+        axes: [],
+      });
+
+      const retrieved = await storage.get(chart.id);
+      expect(retrieved?.legendConfig).toBeUndefined();
+    });
+  });
 });

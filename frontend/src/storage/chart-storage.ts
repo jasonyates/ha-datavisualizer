@@ -24,6 +24,14 @@ export interface TimeRangeConfig {
   end?: string;
 }
 
+export interface LegendConfig {
+  mode: 'list' | 'table';
+  showMin: boolean;
+  showAvg: boolean;
+  showMax: boolean;
+  showCurrent: boolean;
+}
+
 export interface SavedChart {
   id: string;
   name: string;
@@ -35,6 +43,7 @@ export interface SavedChart {
   axes: AxisConfig[];
   colors?: Record<string, string>;
   title?: string;
+  legendConfig?: LegendConfig;
 }
 
 const STORAGE_KEY = 'data_visualizer_charts';
