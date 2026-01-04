@@ -86,7 +86,6 @@ export class ChartCanvas extends LitElement {
     this.resizeObserver.observe(this.chartContainer);
   }
 
-  // @ts-ignore - Reserved for future legend stats feature
   private calculateStats(dataPoints: number[]): { min: number; avg: number; max: number } {
     if (dataPoints.length === 0) {
       return { min: 0, avg: 0, max: 0 };
@@ -111,7 +110,36 @@ export class ChartCanvas extends LitElement {
   }
 
   private buildChartOption(config: ChartConfig): EChartsOption {
-    const { series, seriesConfig, axes, title, showLegend = true, showTooltip = true } = config;
+    const { series, seriesConfig, axes, title, showLegend = true, showTooltip = true, legendConfig } = config;
+
+    // Calculate stats for each series if needed
+    const seriesStats = new Map<string, { min: number; avg: number; max: number; current: number }>();
+    if (legendConfig && (legendConfig.showMin || legendConfig.showAvg || legendConfig.showMax || legendConfig.showCurrent)) {
+      for (const s of series) {
+        const values = s.dataPoints.map(p => p.value).filter(v => v !== null && v !== undefined) as number[];
+        const stats = this.calculateStats(values);
+        const current = values.length > 0 ? values[values.length - 1] : 0;
+        seriesStats.set(s.name, { ...stats, current });
+      }
+    }
+
+    // Build legend formatter
+    const legendFormatter = (name: string) => {
+      if (!legendConfig || legendConfig.mode === 'table') {
+        return name;
+      }
+      const stats = seriesStats.get(name);
+      if (!stats) return name;
+
+      const parts: string[] = [];
+      if (legendConfig.showMin) parts.push(`min: ${stats.min.toFixed(1)}`);
+      if (legendConfig.showAvg) parts.push(`avg: ${stats.avg.toFixed(1)}`);
+      if (legendConfig.showMax) parts.push(`max: ${stats.max.toFixed(1)}`);
+      if (legendConfig.showCurrent) parts.push(`current: ${stats.current.toFixed(1)}`);
+
+      if (parts.length === 0) return name;
+      return `${name} (${parts.join(', ')})`;
+    };
 
     // Build y-axes (max 2)
     const yAxis = axes.map((axis, index) => {
@@ -185,10 +213,11 @@ export class ChartCanvas extends LitElement {
           return html;
         },
       } : undefined,
-      legend: showLegend ? {
+      legend: showLegend && legendConfig?.mode !== 'table' ? {
         data: series.map((s) => s.name),
         bottom: 0,
         textStyle: { color: '#fff' },
+        formatter: legendFormatter,
       } : undefined,
       grid: {
         left: '10%',
