@@ -3,6 +3,7 @@ import { customElement, property, query } from 'lit/decorators.js';
 import * as echarts from 'echarts';
 import type { EChartsOption, ECharts } from 'echarts';
 import type { EntityDataSeries } from '../services/data-fetcher';
+import type { LegendConfig } from '../storage/chart-storage';
 
 export interface SeriesConfig {
   entityId: string;
@@ -24,6 +25,7 @@ export interface ChartConfig {
   axes: AxisInfo[];
   showLegend?: boolean;
   showTooltip?: boolean;
+  legendConfig?: LegendConfig;
 }
 
 @customElement('chart-canvas')
@@ -84,6 +86,7 @@ export class ChartCanvas extends LitElement {
     this.resizeObserver.observe(this.chartContainer);
   }
 
+  // @ts-ignore - Reserved for future legend stats feature
   private calculateStats(dataPoints: number[]): { min: number; avg: number; max: number } {
     if (dataPoints.length === 0) {
       return { min: 0, avg: 0, max: 0 };
