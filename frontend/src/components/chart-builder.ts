@@ -18,7 +18,6 @@ export class ChartBuilder extends LitElement {
 
   @state() private entities: HassEntityRegistry[] = [];
   @state() private areas: HassArea[] = [];
-  @state() private queryText = '';
   @state() private selectedEntities: EntityConfig[] = [];
   @state() private timeRangePreset = '24h';
   @state() private chartTitle = '';
@@ -29,7 +28,6 @@ export class ChartBuilder extends LitElement {
 
   private api!: HaApi;
   private dataFetcher!: DataFetcher;
-  private queryParser!: QueryParser;
   private storage = new ChartStorage();
 
   static styles = css`
@@ -41,31 +39,6 @@ export class ChartBuilder extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 16px;
-    }
-
-    .query-bar {
-      display: flex;
-      gap: 8px;
-    }
-
-    .query-input {
-      flex: 1;
-      padding: 12px;
-      font-size: 14px;
-      border: 1px solid var(--divider-color, #e0e0e0);
-      border-radius: 4px;
-      background: var(--card-background-color, #fff);
-      color: var(--primary-text-color, #000);
-    }
-
-    .go-btn {
-      padding: 12px 24px;
-      background: var(--primary-color);
-      color: var(--text-primary-color, #fff);
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
     }
 
     .chart-area {
@@ -218,7 +191,6 @@ export class ChartBuilder extends LitElement {
       ]);
       this.entities = entities;
       this.areas = areas;
-      this.queryParser = new QueryParser(entities);
 
       if (this.chartId) {
         this.loadChart(this.chartId);
@@ -232,18 +204,6 @@ export class ChartBuilder extends LitElement {
   protected render() {
     return html`
       <div class="builder-container">
-        <div class="query-bar">
-          <input
-            type="text"
-            class="query-input"
-            placeholder="Try: 'power usage vs cost last 7 days' or 'temperature this week'"
-            .value=${this.queryText}
-            @input=${(e: Event) => this.queryText = (e.target as HTMLInputElement).value}
-            @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && this.handleQuery()}
-          />
-          <button class="go-btn" @click=${this.handleQuery}>Go</button>
-        </div>
-
         <div class="chart-area">
           ${this.error
             ? html`<div class="error">${this.error}</div>`
@@ -321,36 +281,6 @@ export class ChartBuilder extends LitElement {
         </div>
       </div>
     `;
-  }
-
-  private async handleQuery(): Promise<void> {
-    if (!this.queryText.trim()) return;
-
-    const parsed = this.queryParser.parse(this.queryText);
-
-    // Update state based on parsed query
-    if (parsed.entities.length > 0) {
-      const newEntities: EntityConfig[] = parsed.entities.map((entityId) => {
-        const state = this.hass?.states[entityId];
-        const unit = (state?.attributes?.unit_of_measurement as string) || undefined;
-
-        return {
-          entityId,
-          axisId: 'left', // Will be reassigned
-          chartType: parsed.chartType as 'line' | 'bar' | 'area' || (unit && ['kWh', 'Wh', 'MWh', 'm³'].includes(unit) ? 'bar' : 'line'),
-          statisticsType: getDefaultStatisticsType(unit),
-          groupingPeriod: getDefaultGroupingPeriod(unit),
-        };
-      });
-
-      this._reassignAxes(newEntities);
-    }
-
-    if (parsed.timeRange.preset) {
-      this.timeRangePreset = parsed.timeRange.preset;
-    }
-
-    await this.fetchChartData();
   }
 
   private async fetchChartData(): Promise<void> {
@@ -483,7 +413,6 @@ export class ChartBuilder extends LitElement {
     this.selectedEntities = chart.entities;
     this.timeRangePreset = chart.timeRange.preset || '24h';
     this.chartTitle = chart.title || '';
-    this.queryText = chart.naturalQuery || '';
 
     this.fetchChartData();
   }
@@ -521,7 +450,6 @@ export class ChartBuilder extends LitElement {
       axes,
       timeRange: { preset: this.timeRangePreset },
       title: this.chartTitle,
-      naturalQuery: this.queryText,
     });
 
     this.dispatchEvent(new CustomEvent('chart-saved', {
