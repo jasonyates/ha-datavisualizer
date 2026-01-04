@@ -1,12 +1,12 @@
 {
   "domain": "data_visualizer",
   "name": "Data Visualizer",
-  "codeowners": [],
+  "codeowners": ["@jasonyates"],
   "config_flow": false,
-  "dependencies": ["frontend", "recorder", "websocket_api"],
-  "documentation": "https://github.com/yourusername/ha-data-visualizer",
-  "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/yourusername/ha-data-visualizer/issues",
+  "dependencies": ["frontend", "http", "recorder", "websocket_api"],
+  "documentation": "https://github.com/jasonyates/ha-datavisualizer",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/jasonyates/ha-datavisualizer/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

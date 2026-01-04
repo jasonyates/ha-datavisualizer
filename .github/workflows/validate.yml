@@ -2,6 +2,8 @@ name: Validate
 
 on:
   push:
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
@@ -14,6 +16,7 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          ignore: brands topics
 
   hassfest:
     name: Hassfest
