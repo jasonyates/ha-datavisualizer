@@ -4,10 +4,12 @@ import type { HomeAssistant, HassEntityRegistry, HassArea } from '../types/homea
 import { HaApi } from '../services/ha-api';
 import { DataFetcher, type EntityDataSeries } from '../services/data-fetcher';
 import { QueryParser } from '../query/parser';
-import { ChartStorage, type AxisConfig, type EntityConfig, type ChartTypeConfig } from '../storage/chart-storage';
+import { ChartStorage, type EntityConfig } from '../storage/chart-storage';
 import './entity-picker';
+import './entity-config-card';
 import './chart-canvas';
-import type { ChartConfig } from './chart-canvas';
+import type { ChartConfig, AxisInfo, SeriesConfig } from './chart-canvas';
+import { assignAxes, getDefaultStatisticsType, getDefaultGroupingPeriod } from '../utils/axis-assignment';
 
 @customElement('chart-builder')
 export class ChartBuilder extends LitElement {
@@ -18,12 +20,6 @@ export class ChartBuilder extends LitElement {
   @state() private areas: HassArea[] = [];
   @state() private queryText = '';
   @state() private selectedEntities: EntityConfig[] = [];
-  @state() private axes: AxisConfig[] = [
-    { id: 'left', position: 'left', entityIds: [] },
-  ];
-  @state() private chartTypes: ChartTypeConfig[] = [
-    { axisId: 'left', type: 'line' },
-  ];
   @state() private timeRangePreset = '24h';
   @state() private chartTitle = '';
   @state() private chartData: EntityDataSeries[] = [];
@@ -261,23 +257,24 @@ export class ChartBuilder extends LitElement {
           <div class="config-section">
             <h3>Entities</h3>
             <div class="entity-list">
-              ${this.selectedEntities.map((e) => html`
-                <span class="entity-chip">
-                  ${this.getEntityName(e.entityId)}
-                  <button class="remove-btn" @click=${() => this.removeEntity(e.entityId)}>×</button>
-                </span>
-              `)}
+              ${this.selectedEntities.map((entity) => {
+                const state = this.hass?.states[entity.entityId];
+                const name = (state?.attributes?.friendly_name as string) || entity.entityId;
+                const unit = (state?.attributes?.unit_of_measurement as string) || '';
+                return html`
+                  <entity-config-card
+                    .config=${{
+                      ...entity,
+                      name,
+                      unit,
+                    }}
+                    @remove=${this._handleEntityRemove}
+                    @config-change=${this._handleEntityConfigChange}
+                  ></entity-config-card>
+                `;
+              })}
             </div>
             <button class="add-btn" @click=${() => this.showEntityPicker = true}>+ Add Entity</button>
-          </div>
-
-          <div class="config-section">
-            <h3>Chart Type</h3>
-            <select @change=${this.handleChartTypeChange}>
-              <option value="line" ?selected=${this.chartTypes[0]?.type === 'line'}>Line</option>
-              <option value="bar" ?selected=${this.chartTypes[0]?.type === 'bar'}>Bar</option>
-              <option value="area" ?selected=${this.chartTypes[0]?.type === 'area'}>Area</option>
-            </select>
           </div>
 
           <div class="config-section">
@@ -333,26 +330,34 @@ export class ChartBuilder extends LitElement {
 
     // Update state based on parsed query
     if (parsed.entities.length > 0) {
-      this.selectedEntities = parsed.entities.map((entityId) => ({
-        entityId,
-        axisId: 'left',
-      }));
-      this.axes = [{ ...this.axes[0], entityIds: parsed.entities }];
+      const newEntities: EntityConfig[] = parsed.entities.map((entityId) => {
+        const state = this.hass?.states[entityId];
+        const unit = (state?.attributes?.unit_of_measurement as string) || undefined;
+
+        return {
+          entityId,
+          axisId: 'left', // Will be reassigned
+          chartType: parsed.chartType as 'line' | 'bar' | 'area' || (unit && ['kWh', 'Wh', 'MWh', 'm³'].includes(unit) ? 'bar' : 'line'),
+          statisticsType: getDefaultStatisticsType(unit),
+          groupingPeriod: getDefaultGroupingPeriod(unit),
+        };
+      });
+
+      this._reassignAxes(newEntities);
     }
 
     if (parsed.timeRange.preset) {
       this.timeRangePreset = parsed.timeRange.preset;
     }
 
-    if (parsed.chartType) {
-      this.chartTypes = [{ axisId: 'left', type: parsed.chartType as 'line' | 'bar' | 'area' }];
-    }
-
     await this.fetchChartData();
   }
 
   private async fetchChartData(): Promise<void> {
-    if (this.selectedEntities.length === 0) return;
+    if (this.selectedEntities.length === 0) {
+      this.chartData = [];
+      return;
+    }
 
     this.loading = true;
     this.error = '';
@@ -360,13 +365,17 @@ export class ChartBuilder extends LitElement {
     const { start, end } = QueryParser.presetToDateRange(this.timeRangePreset);
 
     try {
-      this.chartData = await this.dataFetcher.fetchMultiple(
-        this.selectedEntities.map((e) => e.entityId),
-        start,
-        end
-      );
-    } catch (e) {
-      console.error('Failed to fetch chart data:', e);
+      const entities = this.selectedEntities.map((e) => ({
+        entityId: e.entityId,
+        options: {
+          statisticsType: e.statisticsType,
+          groupingPeriod: e.groupingPeriod,
+        },
+      }));
+
+      this.chartData = await this.dataFetcher.fetchMultiple(entities, start, end);
+    } catch (err) {
+      console.error('Failed to fetch chart data:', err);
       this.error = 'Failed to load chart data. Please try again.';
     } finally {
       this.loading = false;
@@ -374,13 +383,37 @@ export class ChartBuilder extends LitElement {
   }
 
   private buildChartConfig(): ChartConfig {
+    // Build axes info from entities
+    const unitToAxis = new Map<string, 'left' | 'right'>();
+    const axesInfo: AxisInfo[] = [];
+
+    for (const entity of this.selectedEntities) {
+      const state = this.hass?.states[entity.entityId];
+      const unit = (state?.attributes?.unit_of_measurement as string) || '';
+
+      if (!unitToAxis.has(unit)) {
+        const axisId = unitToAxis.size === 0 ? 'left' : 'right';
+        unitToAxis.set(unit, axisId);
+        axesInfo.push({ id: axisId, unit });
+      }
+    }
+
+    // Ensure we have at least one axis
+    if (axesInfo.length === 0) {
+      axesInfo.push({ id: 'left', unit: '' });
+    }
+
+    const seriesConfig: SeriesConfig[] = this.selectedEntities.map((e) => ({
+      entityId: e.entityId,
+      chartType: e.chartType,
+      axisId: e.axisId,
+    }));
+
     return {
       title: this.chartTitle || undefined,
       series: this.chartData,
-      axes: this.axes.map((axis) => ({
-        ...axis,
-        chartType: this.chartTypes.find((ct) => ct.axisId === axis.id)?.type || 'line',
-      })),
+      seriesConfig,
+      axes: axesInfo,
       showLegend: true,
       showTooltip: true,
     };
@@ -388,26 +421,50 @@ export class ChartBuilder extends LitElement {
 
   private handleEntitySelected(e: CustomEvent): void {
     const entity = e.detail.entity as HassEntityRegistry;
+    const state = this.hass?.states[entity.entity_id];
+    const unit = (state?.attributes?.unit_of_measurement as string) || undefined;
+
     if (!this.selectedEntities.find((se) => se.entityId === entity.entity_id)) {
-      this.selectedEntities = [...this.selectedEntities, {
+      const newEntity: EntityConfig = {
         entityId: entity.entity_id,
-        axisId: 'left',
-      }];
-      this.axes = [{ ...this.axes[0], entityIds: this.selectedEntities.map((e) => e.entityId) }];
+        axisId: 'left', // Will be reassigned
+        chartType: unit && ['kWh', 'Wh', 'MWh', 'm³'].includes(unit) ? 'bar' : 'line',
+        statisticsType: getDefaultStatisticsType(unit),
+        groupingPeriod: getDefaultGroupingPeriod(unit),
+      };
+
+      const updatedEntities = [...this.selectedEntities, newEntity];
+      this._reassignAxes(updatedEntities);
       this.fetchChartData();
     }
     this.showEntityPicker = false;
   }
 
-  private removeEntity(entityId: string): void {
-    this.selectedEntities = this.selectedEntities.filter((e) => e.entityId !== entityId);
-    this.axes = [{ ...this.axes[0], entityIds: this.selectedEntities.map((e) => e.entityId) }];
+  private _reassignAxes(entities: EntityConfig[]): void {
+    const entitiesWithUnits = entities.map((e) => ({
+      entityId: e.entityId,
+      unit: (this.hass?.states[e.entityId]?.attributes?.unit_of_measurement as string) || undefined,
+    }));
+    const axisAssignments = assignAxes(entitiesWithUnits);
+    this.selectedEntities = entities.map((e) => ({
+      ...e,
+      axisId: axisAssignments[e.entityId],
+    }));
+  }
+
+  private _handleEntityRemove(e: CustomEvent): void {
+    const entityId = e.detail.entityId;
+    const updatedEntities = this.selectedEntities.filter((e) => e.entityId !== entityId);
+    this._reassignAxes(updatedEntities);
     this.fetchChartData();
   }
 
-  private handleChartTypeChange(e: Event): void {
-    const type = (e.target as HTMLSelectElement).value as 'line' | 'bar' | 'area';
-    this.chartTypes = [{ axisId: 'left', type }];
+  private _handleEntityConfigChange(e: CustomEvent): void {
+    const { entityId, changes } = e.detail;
+    this.selectedEntities = this.selectedEntities.map((entity) =>
+      entity.entityId === entityId ? { ...entity, ...changes } : entity
+    );
+    this.fetchChartData();
   }
 
   private handleTimeRangeChange(e: Event): void {
@@ -419,18 +476,11 @@ export class ChartBuilder extends LitElement {
     this.showEntityPicker = false;
   }
 
-  private getEntityName(entityId: string): string {
-    const entity = this.entities.find((e) => e.entity_id === entityId);
-    return entity?.name || entity?.original_name || entityId;
-  }
-
   private loadChart(id: string): void {
     const chart = this.storage.get(id);
     if (!chart) return;
 
     this.selectedEntities = chart.entities;
-    this.axes = chart.axes;
-    this.chartTypes = chart.chartTypes;
     this.timeRangePreset = chart.timeRange.preset || '24h';
     this.chartTitle = chart.title || '';
     this.queryText = chart.naturalQuery || '';
@@ -439,13 +489,37 @@ export class ChartBuilder extends LitElement {
   }
 
   private handleSave(): void {
+    // Build axes from entities for storage compatibility
+    const axesMap = new Map<string, { id: 'left' | 'right', entityIds: string[], unit?: string }>();
+
+    for (const entity of this.selectedEntities) {
+      const state = this.hass?.states[entity.entityId];
+      const unit = (state?.attributes?.unit_of_measurement as string) || '';
+      const axisId = entity.axisId;
+
+      if (!axesMap.has(axisId)) {
+        axesMap.set(axisId, {
+          id: axisId,
+          entityIds: [],
+          unit,
+        });
+      }
+      axesMap.get(axisId)!.entityIds.push(entity.entityId);
+    }
+
+    const axes = Array.from(axesMap.values()).map(axis => ({
+      id: axis.id,
+      position: axis.id as 'left' | 'right',
+      entityIds: axis.entityIds,
+      unit: axis.unit,
+    }));
+
     const chart = this.storage.save({
       id: this.chartId,
       name: this.chartTitle || `Chart ${new Date().toLocaleDateString()}`,
       entities: this.selectedEntities,
-      chartTypes: this.chartTypes,
+      axes,
       timeRange: { preset: this.timeRangePreset },
-      axes: this.axes,
       title: this.chartTitle,
       naturalQuery: this.queryText,
     });
