@@ -10,6 +10,8 @@ vi.mock('echarts', () => ({
     resize: vi.fn(),
     dispose: vi.fn(),
     getOption: vi.fn(() => ({})),
+    on: vi.fn(),
+    getDataURL: vi.fn(),
   })),
 }));
 
