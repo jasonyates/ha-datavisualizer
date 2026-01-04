@@ -1,6 +1,6 @@
 import { LitElement, html, css, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { HomeAssistant, HassEntityRegistry, HassArea } from '../types/homeassistant';
+import type { HomeAssistant, HassEntityRegistry, HassArea, HassDevice } from '../types/homeassistant';
 import { HaApi } from '../services/ha-api';
 import { DataFetcher, type EntityDataSeries } from '../services/data-fetcher';
 import { QueryParser } from '../query/parser';
@@ -18,6 +18,7 @@ export class ChartBuilder extends LitElement {
 
   @state() private entities: HassEntityRegistry[] = [];
   @state() private areas: HassArea[] = [];
+  @state() private devices: HassDevice[] = [];
   @state() private selectedEntities: EntityConfig[] = [];
   @state() private timeRangePreset = '24h';
   @state() private chartTitle = '';
@@ -172,7 +173,7 @@ export class ChartBuilder extends LitElement {
       background: var(--card-background-color, #fff);
       border-radius: 8px;
       padding: 16px;
-      width: 400px;
+      width: 600px;
       max-height: 80vh;
       overflow: hidden;
       display: flex;
@@ -228,12 +229,14 @@ export class ChartBuilder extends LitElement {
     this.storage = new ChartStorage(this.hass);
 
     try {
-      const [entities, areas] = await Promise.all([
+      const [entities, areas, devices] = await Promise.all([
         this.api.getEntityRegistry(),
         this.api.getAreas(),
+        this.api.getDeviceRegistry(),
       ]);
       this.entities = entities;
       this.areas = areas;
+      this.devices = devices;
 
       if (this.chartId) {
         await this.loadChart(this.chartId);
@@ -364,6 +367,7 @@ export class ChartBuilder extends LitElement {
           <entity-picker
             .entities=${this.entities}
             .areas=${this.areas}
+            .devices=${this.devices}
             .selectedEntityIds=${this.selectedEntities.map((e) => e.entityId)}
             @entity-selected=${this.handleEntitySelected}
           ></entity-picker>

@@ -4,6 +4,7 @@ import type {
   HassHistoryResult,
   HassStatisticsResult,
   HassArea,
+  HassDevice,
 } from '../types/homeassistant';
 
 export type StatisticsPeriod = '5minute' | 'hour' | 'day' | 'week' | 'month';
@@ -26,6 +27,15 @@ export class HaApi {
   async getAreas(): Promise<HassArea[]> {
     return this.hass.callWS<HassArea[]>({
       type: 'config/area_registry/list',
+    });
+  }
+
+  /**
+   * Fetch device registry.
+   */
+  async getDeviceRegistry(): Promise<HassDevice[]> {
+    return this.hass.callWS<HassDevice[]>({
+      type: 'config/device_registry/list',
     });
   }
 

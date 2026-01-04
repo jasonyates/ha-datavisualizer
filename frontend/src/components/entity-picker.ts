@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import Fuse from 'fuse.js';
-import type { HassEntityRegistry, HassArea } from '../types/homeassistant';
+import type { HassEntityRegistry, HassArea, HassDevice } from '../types/homeassistant';
 
 interface GroupedEntities {
   areaName: string;
@@ -13,6 +13,7 @@ interface GroupedEntities {
 export class EntityPicker extends LitElement {
   @property({ type: Array }) entities: HassEntityRegistry[] = [];
   @property({ type: Array }) areas: HassArea[] = [];
+  @property({ type: Array }) devices: HassDevice[] = [];
   @property({ type: Array }) selectedEntityIds: string[] = [];
 
   @state() private searchTerm = '';
@@ -191,15 +192,30 @@ export class EntityPicker extends LitElement {
     return this.fuse.search(this.searchTerm).map((r) => r.item);
   }
 
+  private getEntityAreaId(entity: HassEntityRegistry): string | null {
+    // First check if entity has a direct area assignment
+    if (entity.area_id) {
+      return entity.area_id;
+    }
+    // If not, check if the entity's device has an area
+    if (entity.device_id) {
+      const device = this.devices.find((d) => d.id === entity.device_id);
+      if (device?.area_id) {
+        return device.area_id;
+      }
+    }
+    return null;
+  }
+
   private groupByArea(entities: HassEntityRegistry[]): GroupedEntities[] {
     const areaMap = new Map<string | null, HassEntityRegistry[]>();
 
     for (const entity of entities) {
-      const key = entity.area_id;
-      if (!areaMap.has(key)) {
-        areaMap.set(key, []);
+      const areaId = this.getEntityAreaId(entity);
+      if (!areaMap.has(areaId)) {
+        areaMap.set(areaId, []);
       }
-      areaMap.get(key)!.push(entity);
+      areaMap.get(areaId)!.push(entity);
     }
 
     return Array.from(areaMap.entries())

@@ -33,6 +33,13 @@ export interface HassArea {
   picture: string | null;
 }
 
+export interface HassDevice {
+  id: string;
+  name: string;
+  area_id: string | null;
+  disabled_by: string | null;
+}
+
 export interface HomeAssistant {
   states: Record<string, HassEntity>;
   services: Record<string, Record<string, unknown>>;
