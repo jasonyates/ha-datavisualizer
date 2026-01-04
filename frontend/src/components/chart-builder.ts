@@ -4,7 +4,7 @@ import type { HomeAssistant, HassEntityRegistry, HassArea } from '../types/homea
 import { HaApi } from '../services/ha-api';
 import { DataFetcher, type EntityDataSeries } from '../services/data-fetcher';
 import { QueryParser } from '../query/parser';
-import { ChartStorage, type EntityConfig } from '../storage/chart-storage';
+import { ChartStorage, type EntityConfig, type LegendConfig } from '../storage/chart-storage';
 import './entity-picker';
 import './entity-config-card';
 import './chart-canvas';
@@ -25,6 +25,13 @@ export class ChartBuilder extends LitElement {
   @state() private loading = false;
   @state() private showEntityPicker = false;
   @state() private error = '';
+  @state() private legendConfig: LegendConfig = {
+    mode: 'list',
+    showMin: false,
+    showAvg: false,
+    showMax: false,
+    showCurrent: false,
+  };
 
   private api!: HaApi;
   private dataFetcher!: DataFetcher;
@@ -187,6 +194,26 @@ export class ChartBuilder extends LitElement {
       min-height: 200px;
       color: var(--error-color, #f44336);
     }
+
+    .legend-checkboxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .legend-checkboxes label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .config-section label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
   `;
 
   protected async firstUpdated(_changedProperties: PropertyValues): Promise<void> {
@@ -274,6 +301,47 @@ export class ChartBuilder extends LitElement {
               @input=${(e: Event) => this.chartTitle = (e.target as HTMLInputElement).value}
             />
           </div>
+
+          <div class="config-section">
+            <h3>Legend</h3>
+            <label>
+              Display:
+              <select
+                .value=${this.legendConfig.mode}
+                @change=${(e: Event) => {
+                  this.legendConfig = {
+                    ...this.legendConfig,
+                    mode: (e.target as HTMLSelectElement).value as 'list' | 'table',
+                  };
+                }}
+              >
+                <option value="list">List</option>
+                <option value="table">Table</option>
+              </select>
+            </label>
+            <div class="legend-checkboxes">
+              <label>
+                <input type="checkbox" .checked=${this.legendConfig.showMin}
+                  @change=${(e: Event) => { this.legendConfig = { ...this.legendConfig, showMin: (e.target as HTMLInputElement).checked }; }} />
+                Min
+              </label>
+              <label>
+                <input type="checkbox" .checked=${this.legendConfig.showAvg}
+                  @change=${(e: Event) => { this.legendConfig = { ...this.legendConfig, showAvg: (e.target as HTMLInputElement).checked }; }} />
+                Avg
+              </label>
+              <label>
+                <input type="checkbox" .checked=${this.legendConfig.showMax}
+                  @change=${(e: Event) => { this.legendConfig = { ...this.legendConfig, showMax: (e.target as HTMLInputElement).checked }; }} />
+                Max
+              </label>
+              <label>
+                <input type="checkbox" .checked=${this.legendConfig.showCurrent}
+                  @change=${(e: Event) => { this.legendConfig = { ...this.legendConfig, showCurrent: (e.target as HTMLInputElement).checked }; }} />
+                Current
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -359,6 +427,7 @@ export class ChartBuilder extends LitElement {
       axes: axesInfo,
       showLegend: true,
       showTooltip: true,
+      legendConfig: this.legendConfig,
     };
   }
 
