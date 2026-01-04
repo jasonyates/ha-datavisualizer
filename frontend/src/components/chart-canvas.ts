@@ -4,20 +4,24 @@ import * as echarts from 'echarts';
 import type { EChartsOption, ECharts } from 'echarts';
 import type { EntityDataSeries } from '../services/data-fetcher';
 
-export interface AxisConfig {
-  id: string;
-  position: 'left' | 'right';
+export interface SeriesConfig {
+  entityId: string;
+  chartType: 'bar' | 'line' | 'area';
+  axisId: 'left' | 'right';
+  color?: string;
+}
+
+export interface AxisInfo {
+  id: 'left' | 'right';
+  unit: string;
   name?: string;
-  unit?: string;
-  entityIds: string[];
-  chartType: 'line' | 'bar' | 'area';
-  stacked?: boolean;
 }
 
 export interface ChartConfig {
   title?: string;
   series: EntityDataSeries[];
-  axes: AxisConfig[];
+  seriesConfig: SeriesConfig[];
+  axes: AxisInfo[];
   showLegend?: boolean;
   showTooltip?: boolean;
 }
@@ -87,35 +91,67 @@ export class ChartCanvas extends LitElement {
     this.chart.setOption(option, { notMerge: true });
   }
 
+  public updateChartConfig(config: ChartConfig): void {
+    if (!this.chart) return;
+    const option = this.buildChartOption(config);
+    this.chart.setOption(option, true);
+  }
+
   private buildChartOption(config: ChartConfig): EChartsOption {
-    const { series, axes, title, showLegend = true, showTooltip = true } = config;
+    const { series, seriesConfig, axes, title, showLegend = true, showTooltip = true } = config;
 
-    // Build y-axes
-    const yAxis = axes.map((axis, index) => ({
-      type: 'value' as const,
-      name: axis.name || axis.unit,
-      position: axis.position,
-      axisLine: { show: true },
-      axisLabel: {
-        formatter: (value: number) => `${value}${axis.unit ? ` ${axis.unit}` : ''}`,
-      },
-      offset: index > 1 ? (index - 1) * 60 : 0,
-    }));
-
-    // Build series
-    const chartSeries = series.map((s) => {
-      const axisConfig = axes.find((a) => a.entityIds.includes(s.entityId));
-      const axisIndex = axes.indexOf(axisConfig!);
-
+    // Build y-axes (max 2)
+    const yAxis = axes.map((axis, index) => {
+      const position = axis.id === 'left' ? ('left' as const) : ('right' as const);
       return {
-        name: s.name,
-        type: axisConfig?.chartType === 'area' ? 'line' : axisConfig?.chartType || 'line',
-        yAxisIndex: axisIndex,
-        data: s.dataPoints.map((p) => [p.timestamp, p.value]),
-        smooth: true,
-        areaStyle: axisConfig?.chartType === 'area' ? {} : undefined,
-        stack: axisConfig?.stacked ? axisConfig.id : undefined,
+        type: 'value' as const,
+        name: axis.name || axis.unit,
+        position,
+        axisLine: { show: true },
+        axisLabel: {
+          formatter: (value: number) => {
+            if (Math.abs(value) >= 1000) {
+              return `${(value / 1000).toFixed(1)}k`;
+            }
+            return `${value}`;
+          },
+        },
+        splitLine: { show: index === 0 }, // Only show grid for left axis
       };
+    });
+
+    // Build series with proper chart types
+    const chartSeries = series.map((s) => {
+      const cfg = seriesConfig.find((c) => c.entityId === s.entityId);
+      const axisIndex = axes.findIndex((a) => a.id === cfg?.axisId);
+
+      const baseSeries = {
+        name: s.name,
+        yAxisIndex: axisIndex >= 0 ? axisIndex : 0,
+        data: s.dataPoints.map((p) => [p.timestamp, p.value]),
+        itemStyle: cfg?.color ? { color: cfg.color } : undefined,
+      };
+
+      if (cfg?.chartType === 'bar') {
+        return {
+          ...baseSeries,
+          type: 'bar' as const,
+          barMaxWidth: 50,
+        };
+      } else if (cfg?.chartType === 'area') {
+        return {
+          ...baseSeries,
+          type: 'line' as const,
+          smooth: true,
+          areaStyle: {},
+        };
+      } else {
+        return {
+          ...baseSeries,
+          type: 'line' as const,
+          smooth: true,
+        };
+      }
     });
 
     return {
@@ -123,24 +159,35 @@ export class ChartCanvas extends LitElement {
       tooltip: showTooltip ? {
         trigger: 'axis',
         axisPointer: { type: 'cross' },
+        formatter: (params: any) => {
+          if (!Array.isArray(params)) return '';
+          const date = new Date(params[0].value[0]);
+          const dateStr = date.toLocaleDateString();
+          let html = `<strong>${dateStr}</strong><br/>`;
+          for (const p of params) {
+            const seriesData = series.find((s) => s.name === p.seriesName);
+            const unit = seriesData?.unit || '';
+            html += `${p.marker} ${p.seriesName}: ${p.value[1]?.toFixed(2)} ${unit}<br/>`;
+          }
+          return html;
+        },
       } : undefined,
       legend: showLegend ? {
         data: series.map((s) => s.name),
         bottom: 0,
       } : undefined,
       grid: {
-        left: '3%',
-        right: axes.length > 1 ? '10%' : '3%',
-        bottom: showLegend ? '15%' : '3%',
+        left: '10%',
+        right: axes.length > 1 ? '10%' : '5%',
+        bottom: showLegend ? '15%' : '10%',
         top: title ? '15%' : '10%',
-        containLabel: true,
       },
       xAxis: {
         type: 'time',
         axisLabel: {
           formatter: (value: number) => {
             const date = new Date(value);
-            return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+            return `${date.getDate()} ${date.toLocaleString('default', { month: 'short' })}`;
           },
         },
       },
@@ -148,7 +195,6 @@ export class ChartCanvas extends LitElement {
       series: chartSeries,
       dataZoom: [
         { type: 'inside', xAxisIndex: 0 },
-        { type: 'slider', xAxisIndex: 0, bottom: showLegend ? '8%' : '3%' },
       ],
     };
   }
