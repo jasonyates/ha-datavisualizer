@@ -88,7 +88,7 @@ export class ChartCanvas extends LitElement {
     if (!this.chart || !this.config) return;
 
     const option = this.buildChartOption(this.config);
-    this.chart.setOption(option, { notMerge: true });
+    this.chart.setOption(option, { notMerge: false });
   }
 
   public updateChartConfig(config: ChartConfig): void {

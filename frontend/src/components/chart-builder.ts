@@ -28,7 +28,7 @@ export class ChartBuilder extends LitElement {
 
   private api!: HaApi;
   private dataFetcher!: DataFetcher;
-  private storage = new ChartStorage();
+  private storage!: ChartStorage;
 
   static styles = css`
     :host {
@@ -39,6 +39,39 @@ export class ChartBuilder extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: var(--card-background-color, #fff);
+      border-radius: 8px;
+    }
+
+    .header h2 {
+      flex: 1;
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .header .back-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--divider-color, #e0e0e0);
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--primary-text-color);
+    }
+
+    .header .save-btn {
+      padding: 8px 24px;
+      background: var(--primary-color);
+      color: var(--text-primary-color, #fff);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
     }
 
     .chart-area {
@@ -115,30 +148,6 @@ export class ChartBuilder extends LitElement {
       background: var(--secondary-background-color, #f5f5f5);
     }
 
-    .actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-    }
-
-    .save-btn {
-      padding: 8px 24px;
-      background: var(--primary-color);
-      color: var(--text-primary-color, #fff);
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .back-btn {
-      padding: 8px 24px;
-      background: transparent;
-      border: 1px solid var(--divider-color, #e0e0e0);
-      border-radius: 4px;
-      cursor: pointer;
-      color: var(--primary-text-color);
-    }
-
     .entity-picker-modal {
       position: fixed;
       top: 0;
@@ -183,6 +192,7 @@ export class ChartBuilder extends LitElement {
   protected async firstUpdated(_changedProperties: PropertyValues): Promise<void> {
     this.api = new HaApi(this.hass);
     this.dataFetcher = new DataFetcher(this.api);
+    this.storage = new ChartStorage(this.hass);
 
     try {
       const [entities, areas] = await Promise.all([
@@ -193,7 +203,7 @@ export class ChartBuilder extends LitElement {
       this.areas = areas;
 
       if (this.chartId) {
-        this.loadChart(this.chartId);
+        await this.loadChart(this.chartId);
       }
     } catch (e) {
       console.error('Failed to load entities:', e);
@@ -204,6 +214,14 @@ export class ChartBuilder extends LitElement {
   protected render() {
     return html`
       <div class="builder-container">
+        <div class="header">
+          <button class="back-btn" @click=${this.handleBack}>
+            ← Back
+          </button>
+          <h2>${this.chartId ? 'Edit Chart' : 'New Chart'}</h2>
+          <button class="save-btn" @click=${this.handleSave}>Save</button>
+        </div>
+
         <div class="chart-area">
           ${this.error
             ? html`<div class="error">${this.error}</div>`
@@ -256,11 +274,6 @@ export class ChartBuilder extends LitElement {
               @input=${(e: Event) => this.chartTitle = (e.target as HTMLInputElement).value}
             />
           </div>
-        </div>
-
-        <div class="actions">
-          <button class="back-btn" @click=${this.handleBack}>Back</button>
-          <button class="save-btn" @click=${this.handleSave}>Save Chart</button>
         </div>
       </div>
 
@@ -406,8 +419,8 @@ export class ChartBuilder extends LitElement {
     this.showEntityPicker = false;
   }
 
-  private loadChart(id: string): void {
-    const chart = this.storage.get(id);
+  private async loadChart(id: string): Promise<void> {
+    const chart = await this.storage.get(id);
     if (!chart) return;
 
     this.selectedEntities = chart.entities;
@@ -417,7 +430,7 @@ export class ChartBuilder extends LitElement {
     this.fetchChartData();
   }
 
-  private handleSave(): void {
+  private async handleSave(): Promise<void> {
     // Build axes from entities for storage compatibility
     const axesMap = new Map<string, { id: 'left' | 'right', entityIds: string[], unit?: string }>();
 
@@ -443,7 +456,7 @@ export class ChartBuilder extends LitElement {
       unit: axis.unit,
     }));
 
-    const chart = this.storage.save({
+    const chart = await this.storage.save({
       id: this.chartId,
       name: this.chartTitle || `Chart ${new Date().toLocaleDateString()}`,
       entities: this.selectedEntities,

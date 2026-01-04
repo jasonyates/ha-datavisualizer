@@ -15,7 +15,7 @@ export class HaDataVisualizer extends LitElement {
   @state() private _savedCharts: SavedChart[] = [];
   @state() private _error = '';
 
-  private storage = new ChartStorage();
+  private storage!: ChartStorage;
 
   static styles = css`
     :host {
@@ -146,11 +146,21 @@ export class HaDataVisualizer extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    this.storage = new ChartStorage(this.hass);
     this.loadCharts();
+    this.checkUrlForChart();
   }
 
-  private loadCharts(): void {
-    this._savedCharts = this.storage.getAll();
+  private checkUrlForChart(): void {
+    const url = new URL(window.location.href);
+    const chartId = url.searchParams.get('chart');
+    if (chartId) {
+      this._handleEditChart(chartId);
+    }
+  }
+
+  private async loadCharts(): Promise<void> {
+    this._savedCharts = await this.storage.getAll();
   }
 
   protected render() {
@@ -224,28 +234,40 @@ export class HaDataVisualizer extends LitElement {
   private _handleNewChart() {
     this._editingChartId = undefined;
     this._view = 'builder';
+    this._updateUrl();
   }
 
   private _handleEditChart(id: string) {
     this._editingChartId = id;
     this._view = 'builder';
+    this._updateUrl(id);
   }
 
-  private _handleDuplicate(id: string) {
+  private _updateUrl(chartId?: string): void {
+    const url = new URL(window.location.href);
+    if (chartId) {
+      url.searchParams.set('chart', chartId);
+    } else {
+      url.searchParams.delete('chart');
+    }
+    history.replaceState({}, '', url.toString());
+  }
+
+  private async _handleDuplicate(id: string): Promise<void> {
     try {
-      this.storage.duplicate(id);
-      this.loadCharts();
+      await this.storage.duplicate(id);
+      await this.loadCharts();
     } catch (e) {
       console.error('Failed to duplicate chart:', e);
       this._error = 'Failed to duplicate chart.';
     }
   }
 
-  private _handleDelete(id: string) {
+  private async _handleDelete(id: string): Promise<void> {
     if (confirm('Are you sure you want to delete this chart?')) {
       try {
-        this.storage.delete(id);
-        this.loadCharts();
+        await this.storage.delete(id);
+        await this.loadCharts();
       } catch (e) {
         console.error('Failed to delete chart:', e);
         this._error = 'Failed to delete chart.';
@@ -256,9 +278,11 @@ export class HaDataVisualizer extends LitElement {
   private _handleChartSaved() {
     this.loadCharts();
     this._view = 'list';
+    this._updateUrl();
   }
 
   private _handleBackToList() {
     this._view = 'list';
+    this._updateUrl();
   }
 }

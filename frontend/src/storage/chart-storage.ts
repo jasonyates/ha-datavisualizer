@@ -1,3 +1,4 @@
+import type { HomeAssistant } from '../types/homeassistant';
 import type { StatisticsType, GroupingPeriod } from '../utils/statistics';
 
 export interface EntityConfig {
@@ -36,19 +37,50 @@ export interface SavedChart {
   title?: string;
 }
 
-const STORAGE_KEY = 'ha-data-visualizer-charts';
+const STORAGE_KEY = 'data_visualizer_charts';
 
 export class ChartStorage {
   private charts: SavedChart[] = [];
+  private hass: HomeAssistant;
+  private loaded = false;
 
-  constructor() {
-    this.load();
+  constructor(hass: HomeAssistant) {
+    this.hass = hass;
+  }
+
+  async load(): Promise<void> {
+    if (this.loaded) return;
+    try {
+      const result = await this.hass.callWS<{ value: SavedChart[] | null }>({
+        type: 'frontend/get_user_data',
+        key: STORAGE_KEY,
+      });
+      this.charts = result.value || [];
+      this.loaded = true;
+    } catch (e) {
+      console.warn('Failed to load charts from HA storage:', e);
+      this.charts = [];
+      this.loaded = true;
+    }
+  }
+
+  private async persist(): Promise<void> {
+    try {
+      await this.hass.callWS({
+        type: 'frontend/set_user_data',
+        key: STORAGE_KEY,
+        value: this.charts,
+      });
+    } catch (e) {
+      console.warn('Failed to persist charts to HA storage:', e);
+    }
   }
 
   /**
    * Save a new chart or update an existing one.
    */
-  save(chart: Omit<SavedChart, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; createdAt?: string }): SavedChart {
+  async save(chart: Omit<SavedChart, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; createdAt?: string }): Promise<SavedChart> {
+    await this.load();
     const now = new Date().toISOString();
 
     if (chart.id) {
@@ -62,7 +94,7 @@ export class ChartStorage {
           updatedAt: now,
         };
         this.charts[index] = updated;
-        this.persist();
+        await this.persist();
         return updated;
       }
     }
@@ -75,14 +107,15 @@ export class ChartStorage {
       updatedAt: now,
     };
     this.charts.push(newChart);
-    this.persist();
+    await this.persist();
     return newChart;
   }
 
   /**
    * Get all saved charts.
    */
-  getAll(): SavedChart[] {
+  async getAll(): Promise<SavedChart[]> {
+    await this.load();
     return [...this.charts].sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
@@ -91,7 +124,8 @@ export class ChartStorage {
   /**
    * Get a chart by ID.
    */
-  get(id: string): SavedChart | undefined {
+  async get(id: string): Promise<SavedChart | undefined> {
+    await this.load();
     const chart = this.charts.find((c) => c.id === id);
     return chart ? { ...chart } : undefined;
   }
@@ -99,11 +133,12 @@ export class ChartStorage {
   /**
    * Delete a chart by ID.
    */
-  delete(id: string): boolean {
+  async delete(id: string): Promise<boolean> {
+    await this.load();
     const index = this.charts.findIndex((c) => c.id === id);
     if (index !== -1) {
       this.charts.splice(index, 1);
-      this.persist();
+      await this.persist();
       return true;
     }
     return false;
@@ -112,8 +147,8 @@ export class ChartStorage {
   /**
    * Duplicate a chart.
    */
-  duplicate(id: string): SavedChart | undefined {
-    const original = this.get(id);
+  async duplicate(id: string): Promise<SavedChart | undefined> {
+    const original = await this.get(id);
     if (!original) return undefined;
 
     const { id: _, createdAt: __, updatedAt: ___, ...rest } = original;
@@ -126,46 +161,27 @@ export class ChartStorage {
   /**
    * Export all charts as JSON string.
    */
-  exportAll(): string {
+  async exportAll(): Promise<string> {
+    await this.load();
     return JSON.stringify(this.charts, null, 2);
   }
 
   /**
    * Import charts from JSON string.
    */
-  importCharts(json: string): number {
+  async importCharts(json: string): Promise<number> {
     try {
       const imported = JSON.parse(json) as SavedChart[];
       let count = 0;
       for (const chart of imported) {
         // Generate new IDs to avoid conflicts
         const { id: _, ...rest } = chart;
-        this.save(rest);
+        await this.save(rest);
         count++;
       }
       return count;
     } catch {
       return 0;
-    }
-  }
-
-  private load(): void {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        this.charts = JSON.parse(stored);
-      }
-    } catch {
-      this.charts = [];
-    }
-  }
-
-  private persist(): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.charts));
-    } catch (e) {
-      // Handle QuotaExceededError gracefully
-      console.warn('Failed to persist charts to localStorage:', e);
     }
   }
 
