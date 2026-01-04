@@ -1,13 +1,12 @@
+import type { StatisticsType, GroupingPeriod } from '../utils/statistics';
+
 export interface EntityConfig {
   entityId: string;
-  axisId: string;
+  axisId: 'left' | 'right';
+  chartType: 'bar' | 'line' | 'area';
+  statisticsType: StatisticsType;
+  groupingPeriod: GroupingPeriod;
   color?: string;
-}
-
-export interface ChartTypeConfig {
-  axisId: string;
-  type: 'line' | 'bar' | 'area';
-  stacked?: boolean;
 }
 
 export interface AxisConfig {
@@ -31,7 +30,6 @@ export interface SavedChart {
   updatedAt: string;
   naturalQuery?: string;
   entities: EntityConfig[];
-  chartTypes: ChartTypeConfig[];
   timeRange: TimeRangeConfig;
   axes: AxisConfig[];
   colors?: Record<string, string>;

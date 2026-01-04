@@ -14,8 +14,13 @@ describe('ChartStorage', () => {
     it('should save a new chart and return it with an id', () => {
       const chart: Omit<SavedChart, 'id' | 'createdAt' | 'updatedAt'> = {
         name: 'Test Chart',
-        entities: [{ entityId: 'sensor.power', axisId: 'left' }],
-        chartTypes: [{ axisId: 'left', type: 'line' }],
+        entities: [{
+          entityId: 'sensor.power',
+          axisId: 'left',
+          chartType: 'bar',
+          statisticsType: 'change',
+          groupingPeriod: 'day',
+        }],
         timeRange: { preset: '7d' },
         axes: [{ id: 'left', position: 'left', entityIds: ['sensor.power'] }],
       };
@@ -31,7 +36,6 @@ describe('ChartStorage', () => {
       const chart = storage.save({
         name: 'Original',
         entities: [],
-        chartTypes: [],
         timeRange: { preset: '7d' },
         axes: [],
       });
@@ -53,8 +57,8 @@ describe('ChartStorage', () => {
     });
 
     it('should return all saved charts', () => {
-      storage.save({ name: 'Chart 1', entities: [], chartTypes: [], timeRange: { preset: '7d' }, axes: [] });
-      storage.save({ name: 'Chart 2', entities: [], chartTypes: [], timeRange: { preset: '7d' }, axes: [] });
+      storage.save({ name: 'Chart 1', entities: [], timeRange: { preset: '7d' }, axes: [] });
+      storage.save({ name: 'Chart 2', entities: [], timeRange: { preset: '7d' }, axes: [] });
 
       const all = storage.getAll();
       expect(all).toHaveLength(2);
@@ -66,7 +70,6 @@ describe('ChartStorage', () => {
       const saved = storage.save({
         name: 'Test',
         entities: [],
-        chartTypes: [],
         timeRange: { preset: '7d' },
         axes: [],
       });
@@ -85,7 +88,6 @@ describe('ChartStorage', () => {
       const saved = storage.save({
         name: 'To Delete',
         entities: [],
-        chartTypes: [],
         timeRange: { preset: '7d' },
         axes: [],
       });
@@ -101,8 +103,13 @@ describe('ChartStorage', () => {
     it('should create a copy with new id and updated name', () => {
       const original = storage.save({
         name: 'Original',
-        entities: [{ entityId: 'sensor.power', axisId: 'left' }],
-        chartTypes: [],
+        entities: [{
+          entityId: 'sensor.power',
+          axisId: 'left',
+          chartType: 'line',
+          statisticsType: 'mean',
+          groupingPeriod: 'hour',
+        }],
         timeRange: { preset: '7d' },
         axes: [],
       });
@@ -118,8 +125,8 @@ describe('ChartStorage', () => {
 
   describe('exportAll', () => {
     it('should export all charts as JSON string', () => {
-      storage.save({ name: 'Chart 1', entities: [], chartTypes: [], timeRange: { preset: '7d' }, axes: [] });
-      storage.save({ name: 'Chart 2', entities: [], chartTypes: [], timeRange: { preset: '24h' }, axes: [] });
+      storage.save({ name: 'Chart 1', entities: [], timeRange: { preset: '7d' }, axes: [] });
+      storage.save({ name: 'Chart 2', entities: [], timeRange: { preset: '24h' }, axes: [] });
 
       const exported = storage.exportAll();
       const parsed = JSON.parse(exported);
@@ -133,8 +140,8 @@ describe('ChartStorage', () => {
   describe('importCharts', () => {
     it('should import charts from JSON and return count', () => {
       const chartsJson = JSON.stringify([
-        { name: 'Imported 1', entities: [], chartTypes: [], timeRange: { preset: '7d' }, axes: [] },
-        { name: 'Imported 2', entities: [], chartTypes: [], timeRange: { preset: '24h' }, axes: [] },
+        { name: 'Imported 1', entities: [], timeRange: { preset: '7d' }, axes: [] },
+        { name: 'Imported 2', entities: [], timeRange: { preset: '24h' }, axes: [] },
       ]);
 
       const count = storage.importCharts(chartsJson);
