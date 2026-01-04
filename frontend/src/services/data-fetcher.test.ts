@@ -20,8 +20,8 @@ describe('DataFetcher', () => {
       const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
       vi.mocked(mockApi.getStatistics).mockResolvedValue([
-        { start: start.toISOString(), mean: 100 },
-        { start: now.toISOString(), mean: 150 },
+        { start: start.toISOString(), mean: 100, statistic_id: 'sensor.power', end: now.toISOString() },
+        { start: now.toISOString(), mean: 150, statistic_id: 'sensor.power', end: now.toISOString() },
       ]);
       vi.mocked(mockApi.getState).mockReturnValue({
         attributes: { unit_of_measurement: 'W', friendly_name: 'Power' },
@@ -43,9 +43,9 @@ describe('DataFetcher', () => {
       const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
       vi.mocked(mockApi.getStatistics).mockResolvedValue([
-        { start: start.toISOString(), state: 100 },
-        { start: new Date(start.getTime() + 86400000).toISOString(), state: 150 },
-        { start: now.toISOString(), state: 180 },
+        { start: start.toISOString(), state: 100, statistic_id: 'sensor.energy', end: now.toISOString() },
+        { start: new Date(start.getTime() + 86400000).toISOString(), state: 150, statistic_id: 'sensor.energy', end: now.toISOString() },
+        { start: now.toISOString(), state: 180, statistic_id: 'sensor.energy', end: now.toISOString() },
       ]);
       vi.mocked(mockApi.getState).mockReturnValue({
         attributes: { unit_of_measurement: 'kWh', friendly_name: 'Energy' },
@@ -86,7 +86,7 @@ describe('DataFetcher', () => {
       const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
       vi.mocked(mockApi.getStatistics).mockResolvedValue([
-        { start: start.toISOString(), mean: 100 },
+        { start: start.toISOString(), mean: 100, statistic_id: 'sensor.power', end: now.toISOString() },
       ]);
       vi.mocked(mockApi.getState).mockReturnValue({
         attributes: { unit_of_measurement: 'W', friendly_name: 'Test' },
